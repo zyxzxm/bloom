@@ -6,9 +6,9 @@
 
 ## Conteúdo
 
-- `bloom_app/`: cliente desktop, loja, feed, biblioteca, perfis e configurações.
-- `bloom_world/`: API FastAPI, persistência SQLAlchemy e endpoints para contas, posts, comentários, curtidas, perfis, denúncias, catálogo, avaliações e downloads.
-- `bloom_maker/`: editor visual de cenas 2D JSON com objetos, coordenadas, dimensões, cores, importação/edição de projeto, desenho e prévia estática.
+- `bloom_app/`: cliente desktop, loja, feed, biblioteca, perfis, chats e configurações multilíngues.
+- `bloom_world/`: API FastAPI, persistência SQLAlchemy e endpoints para contas, termos, posts, comentários, chats, denúncias, catálogo, moderação e downloads.
+- `bloom_maker/`: protótipo de editor visual de cenas 2D com eventos/blocos, objetos, imagem, áudio, salvamento e exportação ZIP.
 - `bloom_safe/`: hash SHA-256, inspeção básica de ZIP, indicadores de risco e ressalva explícita de que isso não é antivírus.
 - `assets/bloom.json.example`: modelo de manifesto; `assets/bloom.ico`: ícone original.
 - `tests/`: verificações automatizadas.
@@ -17,21 +17,21 @@
 ## O que funciona nesta versão
 
 - Cadastro de contas com hash Argon2, login e token JWT; busca e perfil público.
-- Publicações, comentários, alternância de curtida, avaliações de jogos e envio de denúncias persistidos no banco.
+- Publicações, comentários e mensagens com exclusão pelo autor, curtidas, avaliações, chats privados/grupos e denúncias persistidos no banco.
 - Catálogo pesquisável por nome/formato; publicação de jogos autenticada como ZIP com `bloom.json`; download remoto, validação de SHA-256, instalação com verificação de caminhos e desinstalação.
 - Formatos aceitos pela API: `exe`, `pygame` e `bloom`. A versão atual recebe pacotes ZIP; o conteúdo do formato é responsabilidade do desenvolvedor e não é automaticamente executado. Manifesto exemplo em `assets/bloom.json.example`.
 - Arquivos de usuário ficam no diretório persistente `BLOOM_DATA_DIR/packages` do servidor. Use volume persistente e cópias de segurança. Não há S3/R2 implementado.
-- BLOOM MAKER salva/abre cena JSON (`.bloom.json`) e mostra uma composição 2D estática. É uma primeira ferramenta de autoria, não uma engine de runtime completa.
-- BLOOM SAFE checa hash, formato ZIP, manifesto, caminhos perigosos e extensões indicativas; não substitui antivírus nem análise em sandbox.
+- BLOOM MAKER salva/abre JSON e exporta ZIP com imagem/áudio e blocos 2D básicos; sua prévia é protótipo, não runtime distribuível.
+- BLOOM SAFE e API fazem triagem de hash/ZIP/caminhos/texto/extensões; ClamAV é opcional no servidor. Nada disso garante segurança, legalidade nem análise visual.
 - A pasta de dados do desktop fica em `%APPDATA%\BLOOM`, fora da pasta temporária do PyInstaller.
 
 ## Ainda pendente / limites de segurança
 
-1. **BLOOM MAKER**: runtime jogável, sistema de cenas múltiplas, sprites/áudio, eventos, colisões, física, animações, importadores completos, exportador runtime e testes dentro do editor não estão implementados. O formato `bloom` aceita projetos JSON, mas o jogo não roda como experiência executável neste momento.
+1. **BLOOM MAKER**: 3D, runtime jogável standalone, sistema de cenas múltiplas, colisões, física, animações e exportador executável ainda não estão implementados. A prévia executa um conjunto pequeno de blocos 2D.
 2. **Arquivos `.py`**: a API deixa registrar `pygame`, mas não verifica por completo se são Pygame. Executá-los dentro de um app PyInstaller não está implementado; não se promete execução portátil desses scripts.
-3. **Segurança**: não há sandbox de processos, assinatura de publicador, serviço antivírus externo, administração/moderação, fila de denúncias, rate limiting avançado, recuperação de senha ou 2FA. Execução de EXE é risco do usuário. A inspeção não garante segurança.
-4. **Loja**: upload é um ZIP até 300 MB, não tem imagens, categorias configuráveis, instalador/atualizador delta ou controle de compras; atualização é feita instalando uma nova versão após remover a pasta existente. Faça backup antes.
-5. **Perfis/atividade**: favoritos, histórico, notificações e configuração de avatar não estão implementados. O perfil tem busca e biografia no endpoint API, mas o editor de perfil não está exposto na GUI.
+3. **Segurança**: moderação por palavras/nome e antivírus ClamAV opcional são incompletos; não há detecção visual, garantia antivírus, sandbox de processos, assinatura de publicador, rate limiting avançado, recuperação de senha ou 2FA. Projetos sinalizados exigem moderador configurado. Chats não têm criptografia ponta a ponta.
+4. **Loja**: upload é ZIP até 300 MB e capa opcional; categorias, instalador/atualizador delta e compras não estão implementados. Faça backup antes de atualizar.
+5. **Perfis/idiomas**: avatar opcional e seletor com 12 idiomas estão disponíveis em escopo inicial; parte de mensagens/termos ainda pode estar em português/inglês. Favoritos, histórico e notificações não estão implementados.
 6. **Produção**: usar Postgres gerenciado; configurar segredo JWT fixo, TLS, backups do banco e dos pacotes, monitoramento/alertas e política de moderação. A API cria tabelas com `create_all` para facilitar a primeira inicialização, mas não possui migrações Alembic.
 7. **Disponibilidade**: Docker `restart: unless-stopped` reinicia o processo; disponibilidade 24/7 depende do provedor, plano sempre ativo, monitoramento e backups. O plano gratuito de alguns hosts pode suspender serviços. Não há SLA configurado.
 8. **Cliente**: interface Tkinter funcional, mas não foi testada visualmente neste ambiente Linux sem desktop. Requer Windows com suporte gráfico. PyInstaller e arquivo `.exe` precisam ser produzidos/testados no Windows.
