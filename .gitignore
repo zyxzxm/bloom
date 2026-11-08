@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.env.*
+!.env.example
+bloom_world.db
+bloom_data/
+dev_bloom_data/
+dist/
+build/
+*.spec
+*.log
