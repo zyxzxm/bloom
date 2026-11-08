@@ -132,6 +132,7 @@ services:
       BLOOM_JWT_SECRET: ${BLOOM_JWT_SECRET:?defina BLOOM_JWT_SECRET}
       BLOOM_DATA_DIR: /data
       BLOOM_CORS_ORIGINS: https://seudominio.tld
+      BLOOM_MODERATOR_USER_IDS: ${BLOOM_MODERATOR_USER_IDS:-}
     volumes:
       - bloom_packages:/data
     depends_on:
@@ -149,6 +150,7 @@ volumes:
 ```bash
 umask 077
 printf 'POSTGRES_PASSWORD=%s\nBLOOM_JWT_SECRET=%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 48)" > .env
+printf 'BLOOM_MODERATOR_USER_IDS=\n' >> .env
 ```
 
 4. Suba e confira. Um proxy TLS deve encaminhar a porta interna 8000 do serviço `api`:
@@ -180,11 +182,11 @@ Prepare um diretório com `bloom.json` (renomeie `assets/bloom.json.example`), o
 }
 ```
 
-`format` deve corresponder ao formato selecionado (`exe`, `pygame` ou `bloom`). Entre em conta, use **Publicar pacote ZIP** em Garden e forneça nome/versão/formato. Verifique cuidadosamente qualquer binário antes de distribuí-lo. O cliente faz hash e extrai com verificação de caminho; **não executa o conteúdo**. No momento, BLOOM MAKER exporta documento de cena, não runtime de jogo que o cliente execute.
+`format` deve corresponder ao formato selecionado (`exe`, `pygame` ou `bloom`). Entre em conta, use **Publicar pacote ZIP** em Garden e forneça nome/versão/formato. Verifique cuidadosamente qualquer binário antes de distribuí-lo. O cliente faz hash e extrai com verificação de caminho; **não executa o conteúdo**. O BLOOM MAKER agora pode exportar projeto 2D com blocos para ZIP e pré-visualizar eventos básicos; ainda não é um runtime de jogo standalone.
 
 ## Abrir BLOOM MAKER
 
-Na tela inicial, clique no cartão BLOOM MAKER. Crie objetos retangulares, ajuste nome, x/y, dimensões e cor, selecione no canvas, salve `.bloom.json` ou abra um projeto; Testar cena abre prévia estática. O primeiro esquema descreve `maker_version`, `project` e `scene.objects`. `type` pode ser `rect` ou `ellipse` alterado no JSON. Para publicar, a embalagem no formato ZIP e a versão de manifesto serão etapas manuais; não atribua formato executável ao projeto se não houver runtime.
+Na tela inicial, clique no cartão BLOOM MAKER. Crie objetos retangulares/elípticos, arraste no canvas, importe imagens e áudios, adicione blocos ligados a eventos “Ao iniciar” e “Ao clicar”, salve/abra `.bloom.json`, exporte um ZIP com `bloom.json` e teste uma prévia 2D interativa. Os blocos implementados incluem movimento, texto, cor e reprodução de áudio. Trata-se de uma engine/protótipo 2D inicial; não há ainda física, colisão, animação avançada ou runtime standalone para os jogos baixados. A engine 3D fica para uma atualização futura.
 
 ## Compilar e publicar para jogadores
 
@@ -225,3 +227,16 @@ Não use `docker compose down -v`: remove volumes e pode apagar banco/arquivos. 
 ## Segurança e privacidade
 
 O BLOOM SAFE é análise local limitada. O hash confirma correspondência com o hash servido pela API, não legitimidade ou segurança do publicador. O backend aceita jogos e fornece downloads, portanto configure limite de upload, armazenamento/backup, rate limits no proxy, moderação operacional e política de remoção antes de uso público. Trate todos os jogos de terceiros como potencialmente perigosos. Não clique em executar/abra manualmente um jogo a menos que confie na origem e tenha proteção adequada. Esta versão não confina processos e não afirma que um pacote é 100% seguro.
+
+
+## Recursos adicionados nesta atualização (estado e limites)
+
+- **12 opções de idioma**: português do Brasil, inglês, espanhol, francês, alemão, italiano, japonês, coreano, chinês simplificado, russo, árabe e hindi. A navegação e os controles principais têm tradução inicial; mensagens de erro, termos e parte do conteúdo podem permanecer em português/inglês. Isto ainda não é tradução editorial completa.
+- **Comunidade e gestão**: aceite explícito da versão 1.0 dos termos no cadastro; exclusão de posts, comentários e projetos próprios; avatar e capa opcionais. A API também impede que um usuário apague conteúdo de outra pessoa.
+- **Chats**: conversa privada entre dois perfis e grupos de pelo menos três pessoas, com histórico e exclusão da própria mensagem. As mensagens são armazenadas pelo servidor, não têm criptografia ponta a ponta; não trate chats como canal secreto.
+- **Triagem de segurança**: regras simples por palavras/nomes/metadados sinalizam termos de pirataria, conteúdo adulto e violência; executáveis/scripts no ZIP são enviados para revisão. Se `clamscan` (ClamAV) estiver instalado no servidor, ele é chamado opcionalmente. Sem ele, a resposta informa `antivirus_status: unavailable`. Análise de nomes/textos e ClamAV **não detectam todo malware**, não analisam visualmente imagens/cenas, não provam titularidade autoral e não substituem moderação humana. Pacote sinalizado permanece oculto do catálogo até aprovação de um moderador.
+- **Operação de moderação**: configure `BLOOM_MODERATOR_USER_IDS` com IDs numéricos de contas controladas pelo responsável do serviço. Sem moderador configurado, publicações sinalizadas não poderão ser aprovadas pelo cliente. Descubra o ID autenticado em `GET /api/me` e configure essa variável no ambiente privado do servidor; nunca coloque credenciais/moderadores no aplicativo distribuído.
+- **BLOOM MAKER 2D**: objetos de cena, blocos por evento (iniciar/clicar), movimento, texto, cor, imagens e áudio; projeto salvável e exportação ZIP. A prévia executa somente os blocos básicos implementados. Os pacotes baixados continuam sem runtime executável dentro do BLOOM; jogos externos são extraídos, não iniciados. 3D, runtime de jogos publicáveis, física/colisão, moderação visual automática, tradução integral, criptografia de chat e revisão/denúncias com equipe são trabalho futuro.
+- **Termos**: consulte [TERMS.md](TERMS.md). É um modelo inicial, precisa de revisão jurídica antes de lançamento público/comercial.
+
+Antes de publicar uma versão, rode `python -m pytest -q`, teste os fluxos em duas contas e configure moderadores e política de operação. Uma suíte verde não equivale a auditoria de segurança nem a serviço pronto para escala.

@@ -21,6 +21,7 @@ services:
       BLOOM_JWT_SECRET: ${BLOOM_JWT_SECRET:?defina BLOOM_JWT_SECRET}
       BLOOM_DATA_DIR: /data
       BLOOM_CORS_ORIGINS: https://seudominio.tld
+      BLOOM_MODERATOR_USER_IDS: ${BLOOM_MODERATOR_USER_IDS:-}
     volumes:
       - bloom_packages:/data
     depends_on:

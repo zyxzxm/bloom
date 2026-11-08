@@ -37,7 +37,7 @@ API_URL = "$ApiUrl"
 Set-Content -Path (Join-Path $Root 'bloom_app\build_config.py') -Value $Generated -Encoding UTF8
 
 Write-Host 'Compilando aplicativo BLOOM...' -ForegroundColor Yellow
-& $VenvPython -m PyInstaller --noconfirm --clean --windowed --onefile --name BLOOM --icon (Join-Path $Root 'assets\bloom.ico') --paths $Root --hidden-import bloom_safe.scanner --hidden-import bloom_safe.installer --hidden-import bloom_maker.editor bloom_app\main.py
+& $VenvPython -m PyInstaller --noconfirm --clean --windowed --onefile --name BLOOM --icon (Join-Path $Root 'assets\bloom.ico') --paths $Root --hidden-import bloom_safe.scanner --hidden-import bloom_safe.installer --hidden-import bloom_maker.editor --hidden-import bloom_app.localization --collect-all pygame --collect-all PIL bloom_app\main.py
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller falhou.' }
 
 $Iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue

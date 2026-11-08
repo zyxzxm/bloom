@@ -1,2 +1,4 @@
 httpx>=0.27,<1
+Pillow>=10.0
+pygame>=2.5
 pyinstaller>=6.0
