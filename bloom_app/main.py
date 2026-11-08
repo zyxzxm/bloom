@@ -95,8 +95,8 @@ class BloomApp(tk.Tk):
     def _login(self,u,p):self.client.auth("login",{"username":u,"password":p});self.update_user();messagebox.showinfo("BLOOM","Login realizado!");self.load_posts()
     def register_dialog(self):
         u=simpledialog.askstring("Criar conta","Nome de usuário (3-32 letras, números ou _):",parent=self);email=simpledialog.askstring("Criar conta","E-mail:",parent=self);p=simpledialog.askstring("Criar conta","Senha (mínimo 10 caracteres):",show="*",parent=self)
-        if u and email and p:self.handle(lambda:self._register(u,email,p))
-    def _register(self,u,e,p):self.client.auth("register",{"username":u,"email":e,"password":p});self.update_user();messagebox.showinfo("BLOOM","Conta criada!")
+        if u and email and p:self.handle(lambda:self._create_account(u,email,p))
+    def _create_account(self,u,e,p):self.client.auth("register",{"username":u,"email":e,"password":p});self.update_user();messagebox.showinfo("BLOOM","Conta criada!")
     def update_user(self):self.user_label.config(text=self.client.state.get("user",{}).get("username","Visitante"));self.profile_text.config(text=json.dumps(self.client.state.get("user",{}),ensure_ascii=False,indent=2) if self.client.state.get("user") else "Você está navegando como visitante.")
     def logout(self):self.client.state={};STATE.unlink(missing_ok=True);self.update_user();messagebox.showinfo("BLOOM","Sessão encerrada.")
     def save_url(self):
