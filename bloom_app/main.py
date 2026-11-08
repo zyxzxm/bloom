@@ -4,6 +4,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog, filedialog
 import httpx
+from .client import BloomClient
 from bloom_safe.scanner import inspect_package
 from bloom_safe.installer import safe_extract
 try:
@@ -20,26 +21,9 @@ DATA=data_home(); CONFIG=DATA/"settings.json"; STATE=DATA/"state.json"; GAMES=DA
 GAMES.mkdir(exist_ok=True)
 DEFAULT={"api_url":BUILD_API_URL}
 
-def read_json(path,default):
-    try:return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError,json.JSONDecodeError):return default
-
-class BloomClient:
-    def __init__(self):
-        self.config=read_json(CONFIG,DEFAULT.copy());self.state=read_json(STATE,{})
-    @property
-    def base(self):return self.config.get("api_url","").rstrip("/")
-    def request(self,method,path,**kwargs):
-        if not self.base:raise RuntimeError("O BLOOM ainda não está conectado ao serviço online. Baixe a versão oficial configurada pelo publicador.")
-        headers=kwargs.pop("headers",{})
-        if self.state.get("token"):headers["Authorization"]="Bearer "+self.state["token"]
-        with httpx.Client(timeout=40) as c:return c.request(method,self.base+path,headers=headers,**kwargs)
-    def auth(self,method,payload):
-        r=self.request("POST",f"/api/auth/{method}",json=payload);r.raise_for_status();self.state=r.json();STATE.write_text(json.dumps(self.state),encoding="utf-8")
-
 class BloomApp(tk.Tk):
     def __init__(self):
-        super().__init__();self.client=BloomClient();self.title("BLOOM — A world full of possibilities.");self.geometry("1120x760");self.minsize(820,600);self.configure(bg="#c9f5ff")
+        super().__init__();self.client=BloomClient(CONFIG,STATE,DEFAULT);self.title("BLOOM — A world full of possibilities.");self.geometry("1120x760");self.minsize(820,600);self.configure(bg="#c9f5ff")
         self.style=ttk.Style(self);self.style.theme_use("clam");self.style.configure("TNotebook",background="#c9f5ff",borderwidth=0);self.style.configure("TNotebook.Tab",padding=(18,10),font=("Segoe UI",11,"bold"),background="#a6eced");self.style.map("TNotebook.Tab",background=[("selected","#ffffff")]);self.style.configure("TButton",font=("Segoe UI",10,"bold"),padding=8,background="#3ec9d6",foreground="#063c54");self.style.map("TButton",background=[("active","#ffb65c")]);self.style.configure("Treeview",rowheight=30,font=("Segoe UI",10));self.style.configure("Treeview.Heading",font=("Segoe UI",10,"bold"))
         self._header();self.tabs=ttk.Notebook(self);self.tabs.pack(fill="both",expand=True,padx=16,pady=12)
         self.home=self._tab("Início");self.garden=self._tab("BLOOM GARDEN");self.world=self._tab("BLOOM WORLD");self.library=self._tab("Minha biblioteca");self.profile=self._tab("Perfil");self.settings=self._tab("Configurações")
