@@ -39,3 +39,12 @@ A instalação ocorre no perfil do próprio usuário. Os dados ficam em `%APPDAT
 ## Limite importante
 
 O instalador client só funciona com serviços online se você já tiver colocado o BLOOM WORLD no ar e usar a URL real dele ao compilar. Eu não publiquei o backend por você: isso exige uma conta/servidor externo. Hospedar e compilar são dois passos diferentes. Não distribua uma build apontada a um endereço de exemplo ou localhost.
+
+
+## Um ou dois executáveis? E o itch.io
+
+O BLOOM pode ter um `BLOOM.exe` (aplicativo do jogador) e, tecnicamente, um executável separado do servidor para quem quiser hospedar uma instância própria. Isso **não** faz dois arquivos distribuídos no itch.io virarem automaticamente um serviço online compartilhado.
+
+Para todos os jogadores verem o mesmo catálogo, feed e contas, o servidor precisa ficar ligado num host acessível pela internet, com endereço HTTPS, banco persistente, armazenamento dos pacotes, backups e manutenção. O caminho previsto neste projeto é hospedar `BLOOM WORLD` separadamente (por exemplo, numa VM com Docker) e publicar no itch.io apenas o instalador do cliente configurado com a URL pública. O itch.io distribui arquivos; não mantém esta API FastAPI e seu banco rodando.
+
+Um `BLOOM-Server.exe` distribuído pode servir para testes locais, uma rede privada ou auto-hospedagem avançada. O computador que o executar precisaria permanecer ligado e ser acessível pela rede; expor uma máquina pessoal à internet exige configuração e cuidados de segurança. Se cada jogador executar sua própria cópia do servidor, cada pessoa terá uma comunidade/banco separado, não uma comunidade única para todos.
