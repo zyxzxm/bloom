@@ -1,0 +1,9 @@
+{
+  "name": "Nome do jogo",
+  "version": "1.0.0",
+  "developer": "nome_de_usuario",
+  "description": "Descrição do jogo",
+  "format": "bloom",
+  "files": ["scene.bloom.json"],
+  "entrypoint": "scene.bloom.json"
+}
