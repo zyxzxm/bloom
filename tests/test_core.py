@@ -1,9 +1,26 @@
-import io, json, zipfile, uuid
+import io, json, os, shutil, tempfile, zipfile, uuid
 from pathlib import Path
+
+# Os testes nunca devem escrever no banco ou armazenamento usados pela API local.
+_TEST_ROOT = Path(tempfile.gettempdir()) / f"bloom-tests-{uuid.uuid4().hex}"
+_TEST_ROOT.mkdir(parents=True, exist_ok=True)
+_TEST_DB = _TEST_ROOT / "test.sqlite3"
+os.environ["BLOOM_DATABASE_URL"] = f"sqlite:///{_TEST_DB.as_posix()}"
+os.environ["BLOOM_DATA_DIR"] = str(_TEST_ROOT / "data")
+
+import pytest
 from fastapi.testclient import TestClient
 from bloom_world.main import app
+from bloom_world.database import engine
 from bloom_safe.scanner import inspect_package
 from bloom_safe.installer import safe_extract
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_isolated_test_data():
+    yield
+    engine.dispose()
+    shutil.rmtree(_TEST_ROOT, ignore_errors=True)
 
 
 def test_scanner_hash_and_risk(tmp_path):
@@ -41,3 +58,27 @@ def test_api_auth_social_and_catalog():
     assert c.get("/api/posts/{}/comments".format(post_id)).json()[0]["body"]=="Belo projeto!"
     assert c.get("/api/games").status_code==200
     assert c.get("/health").json()["status"]=="ok"
+
+
+def test_desktop_client_sends_api_access_token(monkeypatch, tmp_path):
+    from bloom_app.client import BloomClient
+
+    captured = {}
+
+    class FakeClient:
+        def __init__(self, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def request(self, method, url, **kwargs):
+            captured.update(kwargs.get("headers", {}))
+            return object()
+
+    monkeypatch.setattr("bloom_app.client.httpx.Client", FakeClient)
+    client = BloomClient(tmp_path / "settings.json", tmp_path / "state.json")
+    client.config = {"api_url": "http://127.0.0.1:8000"}
+    client.state = {"access_token": "test-token", "token_type": "bearer"}
+    client.request("POST", "/api/posts", json={"body": "teste"})
+    assert captured["Authorization"] == "Bearer test-token"
