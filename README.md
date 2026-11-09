@@ -2,7 +2,7 @@
 
 **A world full of possibilities.** Esta entrega é uma primeira versão funcional do código-fonte: cliente desktop Python/Tkinter, API remota FastAPI, catálogo comunitário com pacotes ZIP, comunidade persistente, BLOOM MAKER visual básico e verificações locais BLOOM SAFE. O desktop e a API são serviços separados. Nenhum servidor é iniciado dentro do executável.
 
-> **Estado honesto:** nada foi publicado na internet, não foi gerado um executável Windows nesta máquina Linux e a integração com armazenamento de objetos externo, antivírus comercial e sandbox de execução do Windows ainda não existe. Configure uma API pública e armazenamento persistente antes de distribuir o cliente. A API não usa localhost por padrão; use localhost apenas para desenvolvimento deliberado. A plataforma nunca inicia um jogo automaticamente.
+> **Estado honesto:** o código suporta Postgres e armazenamento externo Supabase, mas a API ainda precisa ser implantada e configurada com segredos antes de atender jogadores. Não foi gerado um executável Windows nesta máquina Linux. A triagem de segurança é limitada; não existe antivírus comercial nem sandbox de execução do Windows. A API não usa localhost por padrão; use localhost apenas para desenvolvimento deliberado. A plataforma nunca inicia um jogo automaticamente.
 
 ## Conteúdo
 
@@ -20,7 +20,7 @@
 - Publicações, comentários e mensagens com exclusão pelo autor, curtidas, avaliações, chats privados/grupos e denúncias persistidos no banco.
 - Catálogo pesquisável por nome/formato; publicação de jogos autenticada como ZIP com `bloom.json`; download remoto, validação de SHA-256, instalação com verificação de caminhos e desinstalação.
 - Formatos aceitos pela API: `exe`, `pygame` e `bloom`. A versão atual recebe pacotes ZIP; o conteúdo do formato é responsabilidade do desenvolvedor e não é automaticamente executado. Manifesto exemplo em `assets/bloom.json.example`.
-- Arquivos de usuário ficam no diretório persistente `BLOOM_DATA_DIR/packages` do servidor. Use volume persistente e cópias de segurança. Não há S3/R2 implementado.
+- Arquivos de usuário podem ficar localmente em `BLOOM_DATA_DIR` ou em bucket privado Supabase Storage quando `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` estão configurados. Em Supabase Free, cada arquivo é limitado no BLOOM a 45 MB; o armazenamento total incluído é limitado e o projeto pode pausar por inatividade.
 - BLOOM MAKER salva/abre JSON e exporta ZIP com imagem/áudio e blocos 2D básicos; sua prévia é protótipo, não runtime distribuível.
 - BLOOM SAFE e API fazem triagem de hash/ZIP/caminhos/texto/extensões; ClamAV é opcional no servidor. Nada disso garante segurança, legalidade nem análise visual.
 - A pasta de dados do desktop fica em `%APPDATA%\BLOOM`, fora da pasta temporária do PyInstaller.
@@ -32,7 +32,7 @@
 3. **Segurança**: moderação por palavras/nome e antivírus ClamAV opcional são incompletos; não há detecção visual, garantia antivírus, sandbox de processos, assinatura de publicador, rate limiting avançado, recuperação de senha ou 2FA. Projetos sinalizados exigem moderador configurado. Chats não têm criptografia ponta a ponta.
 4. **Loja**: upload é ZIP até 300 MB e capa opcional; categorias, instalador/atualizador delta e compras não estão implementados. Faça backup antes de atualizar.
 5. **Perfis/idiomas**: avatar opcional e seletor com 12 idiomas estão disponíveis em escopo inicial; parte de mensagens/termos ainda pode estar em português/inglês. Favoritos, histórico e notificações não estão implementados.
-6. **Produção**: usar Postgres gerenciado; configurar segredo JWT fixo, TLS, backups do banco e dos pacotes, monitoramento/alertas e política de moderação. A API cria tabelas com `create_all` para facilitar a primeira inicialização, mas não possui migrações Alembic.
+6. **Produção**: configurar Postgres gerenciado, segredo JWT fixo, TLS, backups do banco e dos pacotes, monitoramento/alertas e política de moderação. A API cria tabelas com `create_all` para facilitar a primeira inicialização, mas não possui migrações Alembic.
 7. **Disponibilidade**: Docker `restart: unless-stopped` reinicia o processo; disponibilidade 24/7 depende do provedor, plano sempre ativo, monitoramento e backups. O plano gratuito de alguns hosts pode suspender serviços. Não há SLA configurado.
 8. **Cliente**: interface Tkinter funcional, mas não foi testada visualmente neste ambiente Linux sem desktop. Requer Windows com suporte gráfico. PyInstaller e arquivo `.exe` precisam ser produzidos/testados no Windows.
 
@@ -99,7 +99,21 @@ $env:BLOOM_JWT_SECRET = (python -c "import secrets; print(secrets.token_urlsafe(
 python -m uvicorn bloom_world.main:app --host 127.0.0.1 --port 8000
 ```
 
-No serviço publicado, insira `BLOOM_DATABASE_URL` no cofre de variáveis do provedor. O valor PostgreSQL deve começar com `postgresql+psycopg://`. Não comite `.env`, senhas, tokens nem uma URL de banco com credenciais. `BLOOM_JWT_SECRET` precisa ser aleatório, persistente e igual após reinícios; trocá-lo invalida sessões existentes. `BLOOM_DATA_DIR` precisa apontar para volume persistente para que os ZIPs não desapareçam quando o container for recriado.
+No serviço publicado, insira `BLOOM_DATABASE_URL` no cofre de variáveis do provedor. O código aceita connection strings `postgres://`, `postgresql://` e `postgresql+psycopg://`. Não comite `.env`, senhas, tokens nem uma URL de banco com credenciais. `BLOOM_JWT_SECRET` precisa ser aleatório, persistente e igual após reinícios; trocá-lo invalida sessões existentes. Com object storage configurado, os ZIPs e imagens não dependem de `BLOOM_DATA_DIR` após o upload.
+
+## Primeira hospedagem sem custo: Render + Supabase
+
+O Supabase Free fornece Postgres (500 MB), 1 GB de arquivos e 5 GB de tráfego de saída, mas pode pausar projetos com pouca atividade por sete dias e não inclui backups baixáveis do banco. O Render Free suspende o processo web após inatividade, pode demorar para acordar e não mantém arquivos do container nem volumes persistentes. Portanto, esta configuração serve para teste e uma primeira versão pequena, não para disponibilidade 24/7, SLA ou dados críticos. Não ative plano pago, teste ou método de pagamento para seguir este guia.
+
+1. Crie no Supabase uma organização no plano **Free ($0)** e um projeto Postgres. Na página **Storage > Files > Buckets**, crie `bloom-assets` como bucket **privado**. O código limita pacotes a 45 MB quando usa esse armazenamento gratuito. Copie a URL do projeto, a connection string PostgreSQL e uma chave secreta de servidor; nunca use a chave pública no servidor.
+2. No Render, crie um **Web Service** conectado ao repositório GitHub `zyxzxm/bloom`. Use o `Dockerfile` do repositório, instância **Free**, e não adicione disco persistente nem banco Render (o banco Render Free expira). Se o painel exigir cartão, plano pago ou teste, cancele sem concluir.
+3. No painel **Environment** do serviço, cadastre `BLOOM_DATABASE_URL` (connection string Postgres do Supabase), `BLOOM_JWT_SECRET` (segredo aleatório longo), `SUPABASE_URL` (URL do projeto), `SUPABASE_SERVICE_ROLE_KEY` (chave secreta do servidor) e `SUPABASE_STORAGE_BUCKET=bloom-assets`. Cadastre os segredos somente no painel privado do Render. Não os cole em GitHub, README, chat ou arquivo `.env` comitado.
+4. Aguarde o build e o deploy; teste `https://SEU-SERVICO.onrender.com/health`. Essa URL HTTPS é a que o instalador Windows deve receber como endereço da API. Faça primeiro cadastro e publicação de um ZIP de teste com menos de 45 MB.
+5. Verifique diariamente a tela de uso do Supabase. O plano Free pode pausar após inatividade e tem cotas de banco, arquivos e tráfego; a API pode acordar lentamente no Render Free. Exporte cópias do banco/arquivos por conta própria antes de guardar conteúdo importante. Para uma comunidade pública confiável, planeje um host sempre ativo e backups, que podem ter custo.
+
+Em uma instância Render Free, use `https://...onrender.com` como URL pública; configure `BLOOM_CORS_ORIGINS` apenas se uma origem web específica for necessária. O cliente desktop chama diretamente a API e não depende de CORS do navegador.
+
+## Implantar a API em uma VM Linux na nuvem
 
 ## Implantar a API em uma VM Linux na nuvem
 
