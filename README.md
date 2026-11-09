@@ -30,7 +30,7 @@
 1. **BLOOM MAKER**: 3D, runtime jogável standalone, sistema de cenas múltiplas, colisões, física, animações e exportador executável ainda não estão implementados. A prévia executa um conjunto pequeno de blocos 2D.
 2. **Arquivos `.py`**: a API deixa registrar `pygame`, mas não verifica por completo se são Pygame. Executá-los dentro de um app PyInstaller não está implementado; não se promete execução portátil desses scripts.
 3. **Segurança**: moderação por palavras/nome e antivírus ClamAV opcional são incompletos; não há detecção visual, garantia antivírus, sandbox de processos, assinatura de publicador, rate limiting avançado, recuperação de senha ou 2FA. Projetos sinalizados exigem moderador configurado. Chats não têm criptografia ponta a ponta.
-4. **Loja**: upload é ZIP até 300 MB e capa opcional; categorias, instalador/atualizador delta e compras não estão implementados. Faça backup antes de atualizar.
+4. **Loja**: upload é ZIP até 300 MB no modo local e até 45 MB no modo cloud configurado com o bucket gratuito do Supabase; capa opcional. Categorias, instalador/atualizador delta e compras não estão implementados. Faça backup antes de atualizar.
 5. **Perfis/idiomas**: avatar opcional e seletor com 12 idiomas estão disponíveis em escopo inicial; parte de mensagens/termos ainda pode estar em português/inglês. Favoritos, histórico e notificações não estão implementados.
 6. **Produção**: configurar Postgres gerenciado, segredo JWT fixo, TLS, backups do banco e dos pacotes, monitoramento/alertas e política de moderação. A API cria tabelas com `create_all` para facilitar a primeira inicialização, mas não possui migrações Alembic.
 7. **Disponibilidade**: Docker `restart: unless-stopped` reinicia o processo; disponibilidade 24/7 depende do provedor, plano sempre ativo, monitoramento e backups. O plano gratuito de alguns hosts pode suspender serviços. Não há SLA configurado.
@@ -107,13 +107,11 @@ O Supabase Free fornece Postgres (500 MB), 1 GB de arquivos e 5 GB de tráfego d
 
 1. Crie no Supabase uma organização no plano **Free ($0)** e um projeto Postgres. Na página **Storage > Files > Buckets**, crie `bloom-assets` como bucket **privado**. O código limita pacotes a 45 MB quando usa esse armazenamento gratuito. Copie a URL do projeto, a connection string PostgreSQL e uma chave secreta de servidor; nunca use a chave pública no servidor.
 2. No Render, crie um **Web Service** conectado ao repositório GitHub `zyxzxm/bloom`. Use o `Dockerfile` do repositório, instância **Free**, e não adicione disco persistente nem banco Render (o banco Render Free expira). Se o painel exigir cartão, plano pago ou teste, cancele sem concluir.
-3. No painel **Environment** do serviço, cadastre `BLOOM_DATABASE_URL` (connection string Postgres do Supabase), `BLOOM_JWT_SECRET` (segredo aleatório longo), `SUPABASE_URL` (URL do projeto), `SUPABASE_SERVICE_ROLE_KEY` (chave secreta do servidor) e `SUPABASE_STORAGE_BUCKET=bloom-assets`. Cadastre os segredos somente no painel privado do Render. Não os cole em GitHub, README, chat ou arquivo `.env` comitado.
+3. No painel **Environment** do serviço, cadastre `BLOOM_DATABASE_URL` (connection string Postgres do Supabase), `SUPABASE_URL` (URL do projeto), `SUPABASE_SERVICE_ROLE_KEY` (chave secreta do servidor) e `SUPABASE_STORAGE_BUCKET=bloom-assets`. O Blueprint gera e mantém `BLOOM_JWT_SECRET` automaticamente. Cadastre os segredos somente no painel privado do Render. Não os cole em GitHub, README, chat ou arquivo `.env` comitado.
 4. Aguarde o build e o deploy; teste `https://SEU-SERVICO.onrender.com/health`. Essa URL HTTPS é a que o instalador Windows deve receber como endereço da API. Faça primeiro cadastro e publicação de um ZIP de teste com menos de 45 MB.
 5. Verifique diariamente a tela de uso do Supabase. O plano Free pode pausar após inatividade e tem cotas de banco, arquivos e tráfego; a API pode acordar lentamente no Render Free. Exporte cópias do banco/arquivos por conta própria antes de guardar conteúdo importante. Para uma comunidade pública confiável, planeje um host sempre ativo e backups, que podem ter custo.
 
 Em uma instância Render Free, use `https://...onrender.com` como URL pública; configure `BLOOM_CORS_ORIGINS` apenas se uma origem web específica for necessária. O cliente desktop chama diretamente a API e não depende de CORS do navegador.
-
-## Implantar a API em uma VM Linux na nuvem
 
 ## Implantar a API em uma VM Linux na nuvem
 
