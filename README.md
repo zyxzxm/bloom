@@ -2,7 +2,7 @@
 
 **A world full of possibilities.** Esta entrega é uma primeira versão funcional do código-fonte: cliente desktop Python/Tkinter, API remota FastAPI, catálogo comunitário com pacotes ZIP, comunidade persistente, BLOOM MAKER visual básico e verificações locais BLOOM SAFE. O desktop e a API são serviços separados. Nenhum servidor é iniciado dentro do executável.
 
-> **Estado honesto:** o código suporta Postgres e armazenamento externo Supabase, mas a API ainda precisa ser implantada e configurada com segredos antes de atender jogadores. Não foi gerado um executável Windows nesta máquina Linux. A triagem de segurança é limitada; não existe antivírus comercial nem sandbox de execução do Windows. A API não usa localhost por padrão; use localhost apenas para desenvolvimento deliberado. A plataforma nunca inicia um jogo automaticamente.
+> **Status do deploy de teste:** a API BLOOM WORLD está publicada em [bloom-world.onrender.com](https://bloom-world.onrender.com); `GET /health` e `GET /api/games` respondem. O serviço está no plano Render Free, usa Postgres e bucket privado Supabase e pode dormir quando fica inativo. A persistência de mídia foi configurada, mas não foi validada com upload real de jogador. Esta é uma API, não um site web público completo. Não foi gerado um executável Windows nesta máquina Linux. A triagem de segurança é limitada; não existe antivírus comercial nem sandbox de execução do Windows. A API não usa localhost por padrão; use localhost apenas para desenvolvimento deliberado. A plataforma nunca inicia um jogo automaticamente.
 
 ## Conteúdo
 
@@ -32,7 +32,7 @@
 3. **Segurança**: moderação por palavras/nome e antivírus ClamAV opcional são incompletos; não há detecção visual, garantia antivírus, sandbox de processos, assinatura de publicador, rate limiting avançado, recuperação de senha ou 2FA. Projetos sinalizados exigem moderador configurado. Chats não têm criptografia ponta a ponta.
 4. **Loja**: upload é ZIP até 300 MB no modo local e até 45 MB no modo cloud configurado com o bucket gratuito do Supabase; capa opcional. Categorias, instalador/atualizador delta e compras não estão implementados. Faça backup antes de atualizar.
 5. **Perfis/idiomas**: avatar opcional e seletor com 12 idiomas estão disponíveis em escopo inicial; parte de mensagens/termos ainda pode estar em português/inglês. Favoritos, histórico e notificações não estão implementados.
-6. **Produção**: configurar Postgres gerenciado, segredo JWT fixo, TLS, backups do banco e dos pacotes, monitoramento/alertas e política de moderação. A API cria tabelas com `create_all` para facilitar a primeira inicialização, mas não possui migrações Alembic.
+6. **Produção além do deploy gratuito de teste**: a hospedagem atual usa Postgres gerenciado e Render gera o segredo JWT persistente. Antes de um lançamento amplo, configure backups do banco e dos pacotes, monitoramento/alertas e política de moderação. A API cria tabelas com `create_all` para facilitar a primeira inicialização, mas ainda não possui migrações Alembic.
 7. **Disponibilidade**: Docker `restart: unless-stopped` reinicia o processo; disponibilidade 24/7 depende do provedor, plano sempre ativo, monitoramento e backups. O plano gratuito de alguns hosts pode suspender serviços. Não há SLA configurado.
 8. **Cliente**: interface Tkinter funcional, mas não foi testada visualmente neste ambiente Linux sem desktop. Requer Windows com suporte gráfico. PyInstaller e arquivo `.exe` precisam ser produzidos/testados no Windows.
 
@@ -104,6 +104,8 @@ No serviço publicado, insira `BLOOM_DATABASE_URL` no cofre de variáveis do pro
 ## Primeira hospedagem sem custo: Render + Supabase
 
 O Supabase Free fornece Postgres (500 MB), 1 GB de arquivos e 5 GB de tráfego de saída, mas pode pausar projetos com pouca atividade por sete dias e não inclui backups baixáveis do banco. O Render Free suspende o processo web após inatividade, pode demorar para acordar e não mantém arquivos do container nem volumes persistentes. Portanto, esta configuração serve para teste e uma primeira versão pequena, não para disponibilidade 24/7, SLA ou dados críticos. Não ative plano pago, teste ou método de pagamento para seguir este guia.
+
+A API de teste deste repositório já está em [https://bloom-world.onrender.com](https://bloom-world.onrender.com). A rota `/health` permite testar a disponibilidade; a documentação interativa da API fica em `/docs`.
 
 1. Crie no Supabase uma organização no plano **Free ($0)** e um projeto Postgres. Na página **Storage > Files > Buckets**, crie `bloom-assets` como bucket **privado**. O código limita pacotes a 45 MB quando usa esse armazenamento gratuito. Copie a URL do projeto, a connection string PostgreSQL e uma chave secreta de servidor; nunca use a chave pública no servidor.
 2. No Render, crie um **Web Service** conectado ao repositório GitHub `zyxzxm/bloom`. Use o `Dockerfile` do repositório, instância **Free**, e não adicione disco persistente nem banco Render (o banco Render Free expira). Se o painel exigir cartão, plano pago ou teste, cancele sem concluir.
