@@ -12,6 +12,9 @@ from pwdlib import PasswordHash
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, select, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 from .database import Base, engine, get_db
+from . import object_storage
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 APP_DIR = Path(os.getenv("BLOOM_DATA_DIR", "./bloom_data")).resolve()
 UPLOAD_DIR = APP_DIR / "packages"
@@ -312,28 +315,64 @@ def save_image_upload(file:UploadFile):
     except Exception: raise HTTPException(415,"Arquivo não é uma imagem reconhecida")
     suffix={"PNG":".png","JPEG":".jpg","WEBP":".webp","GIF":".gif"}.get(fmt)
     if not suffix: raise HTTPException(415,"Use PNG, JPEG, WEBP ou GIF")
-    name=uuid.uuid4().hex+suffix;(MEDIA_DIR/name).write_bytes(raw)
+    name=uuid.uuid4().hex+suffix
+    if object_storage.enabled():
+        temp=MEDIA_DIR/(uuid.uuid4().hex+".part")
+        try:
+            temp.write_bytes(raw)
+            object_storage.upload_file(temp,f"media/{name}",f"image/{'jpeg' if fmt=='JPEG' else fmt.lower()}")
+        except Exception as exc:
+            raise HTTPException(502,"Não foi possível armazenar a imagem") from exc
+        finally:
+            temp.unlink(missing_ok=True)
+    else:
+        (MEDIA_DIR/name).write_bytes(raw)
     return name
+
+def stored_file_response(key:str,local_path:Path,filename:str|None,media_type:str,headers:dict|None=None):
+    if object_storage.enabled():
+        temp=APP_DIR/"tmp"/(uuid.uuid4().hex+local_path.suffix)
+        try:
+            object_storage.download_file(key,temp)
+        except FileNotFoundError:
+            temp.unlink(missing_ok=True)
+            raise HTTPException(404,"Arquivo indisponível")
+        except Exception as exc:
+            temp.unlink(missing_ok=True)
+            raise HTTPException(502,"Não foi possível obter o arquivo armazenado") from exc
+        return FileResponse(temp,media_type=media_type,filename=filename,headers=headers or {},background=BackgroundTask(lambda:temp.unlink(missing_ok=True)))
+    if not local_path.is_file():
+        raise HTTPException(404,"Arquivo indisponível")
+    return FileResponse(local_path,media_type=media_type,filename=filename,headers=headers or {})
+
+def delete_stored_file(key:str,local_path:Path):
+    if object_storage.enabled():
+        try:
+            object_storage.delete_object(key)
+        except Exception as exc:
+            raise HTTPException(502,"Não foi possível remover o arquivo armazenado") from exc
+    else:
+        local_path.unlink(missing_ok=True)
 
 @app.put("/api/me/avatar")
 def upload_avatar(file:UploadFile=File(...),user:User=Depends(require_user),db:Session=Depends(get_db)):
     name=save_image_upload(file)
     item=db.scalar(select(AccountMedia).where(AccountMedia.user_id==user.id))
-    if item and item.avatar_path: (MEDIA_DIR/item.avatar_path).unlink(missing_ok=True)
+    if item and item.avatar_path: delete_stored_file(f"media/{item.avatar_path}",MEDIA_DIR/item.avatar_path)
     if item:item.avatar_path=name
     else:db.add(AccountMedia(user_id=user.id,avatar_path=name))
     db.commit();return {"url":f"/api/users/{user.username}/avatar"}
 
 @app.get("/api/users/{username}/avatar")
 def get_avatar(username:str,db:Session=Depends(get_db)):
-    from fastapi.responses import FileResponse
     user=db.scalar(select(User).where(func.lower(User.username)==username.lower()))
     if not user: raise HTTPException(404,"Perfil não encontrado")
     item=db.scalar(select(AccountMedia).where(AccountMedia.user_id==user.id))
     if not item or not item.avatar_path: raise HTTPException(404,"Este perfil não tem foto")
     path=MEDIA_DIR/item.avatar_path
-    if not path.is_file(): raise HTTPException(404,"Foto indisponível")
-    return FileResponse(path)
+    suffix=Path(item.avatar_path).suffix.lower()
+    media_type={".png":"image/png",".jpg":"image/jpeg",".webp":"image/webp",".gif":"image/gif"}.get(suffix,"application/octet-stream")
+    return stored_file_response(f"media/{item.avatar_path}",path,None,media_type)
 
 @app.get("/api/posts")
 def list_posts(db: Session = Depends(get_db), limit: int = 30, offset: int = 0):
@@ -473,19 +512,19 @@ def upload_game_cover(game_id:int,file:UploadFile=File(...),user:User=Depends(re
     if game.developer_id!=user.id: raise HTTPException(403,"Só o autor pode editar a capa")
     name=save_image_upload(file)
     item=db.scalar(select(GameMedia).where(GameMedia.game_id==game_id))
-    if item and item.cover_path: (MEDIA_DIR/item.cover_path).unlink(missing_ok=True)
+    if item and item.cover_path: delete_stored_file(f"media/{item.cover_path}",MEDIA_DIR/item.cover_path)
     if item:item.cover_path=name
     else:db.add(GameMedia(game_id=game_id,cover_path=name))
     db.commit();return {"url":f"/api/games/{game_id}/cover"}
 
 @app.get("/api/games/{game_id}/cover")
 def get_game_cover(game_id:int,db:Session=Depends(get_db)):
-    from fastapi.responses import FileResponse
     item=db.scalar(select(GameMedia).where(GameMedia.game_id==game_id))
     if not item or not item.cover_path: raise HTTPException(404,"Projeto sem capa")
     path=MEDIA_DIR/item.cover_path
-    if not path.is_file(): raise HTTPException(404,"Capa indisponível")
-    return FileResponse(path)
+    suffix=Path(item.cover_path).suffix.lower()
+    media_type={".png":"image/png",".jpg":"image/jpeg",".webp":"image/webp",".gif":"image/gif"}.get(suffix,"application/octet-stream")
+    return stored_file_response(f"media/{item.cover_path}",path,None,media_type)
 
 @app.post("/api/games/{game_id}/rating")
 def rate_game(game_id:int,data:RatingIn,user:User=Depends(require_user),db:Session=Depends(get_db)):
@@ -506,11 +545,14 @@ def publish_game(name:str=Form(...),version:str=Form(...),description:str=Form("
     if len(name)>100 or len(version)>40 or len(description)>10000: raise HTTPException(422,"Metadados excedem os limites")
     slug=f"{re.sub(r'[^a-z0-9]+','-',name.lower()).strip('-')[:50] or 'jogo'}-{uuid.uuid4().hex[:8]}"
     temp=UPLOAD_DIR/f"{uuid.uuid4().hex}.part"; digest=hashlib.sha256(); size=0;archive_findings=[]
+    max_package_size=45*1024*1024 if object_storage.enabled() else 300*1024*1024
     try:
         with temp.open("wb") as out:
             while chunk:=file.file.read(1024*1024):
                 size+=len(chunk)
-                if size>300*1024*1024: raise HTTPException(413,"Pacote excede 300 MB")
+                if size>max_package_size:
+                    limit="45 MB no armazenamento gratuito em nuvem" if object_storage.enabled() else "300 MB"
+                    raise HTTPException(413,f"Pacote excede o limite de {limit}")
                 digest.update(chunk);out.write(chunk)
         try:
             with zipfile.ZipFile(temp) as z:
@@ -530,12 +572,20 @@ def publish_game(name:str=Form(...),version:str=Form(...),description:str=Form("
                         try:archive_findings.extend(scan_publication_text(z.read(info).decode("utf-8",errors="ignore")))
                         except Exception:pass
         except zipfile.BadZipFile: raise HTTPException(400,"Arquivo ZIP inválido")
-        final_name=f"{slug}.zip"; final_path=UPLOAD_DIR/final_name;temp.replace(final_path)
+        final_name=f"{slug}.zip"; final_path=UPLOAD_DIR/final_name
         review_text=" ".join([name,version,description,manifest.get("name", ""),manifest.get("description", "")])
         findings=scan_publication_text(review_text)+archive_findings
         findings=sorted(set(findings))
-        antivirus_status,antivirus_findings=scan_with_clamav(final_path)
+        antivirus_status,antivirus_findings=scan_with_clamav(temp)
         findings=sorted(set(findings+antivirus_findings))
+        if object_storage.enabled():
+            try:
+                object_storage.upload_file(temp,f"packages/{final_name}","application/zip")
+            except Exception as exc:
+                raise HTTPException(502,"Não foi possível armazenar o pacote na nuvem") from exc
+            temp.unlink(missing_ok=True)
+        else:
+            temp.replace(final_path)
         review_status="pending" if findings else "approved"
         g=Game(slug=slug,name=name,version=version,description=description,format=format,developer_id=user.id,package_name=final_name,sha256=digest.hexdigest(),size=size)
         db.add(g);db.flush();db.add(ModerationReview(game_id=g.id,status=review_status,findings=json.dumps(findings)));db.commit();db.refresh(g)
@@ -545,23 +595,26 @@ def publish_game(name:str=Form(...),version:str=Form(...),description:str=Form("
     finally: file.file.close()
 @app.get("/api/games/{slug}/download")
 def download_game(slug:str,db:Session=Depends(get_db)):
-    from fastapi.responses import FileResponse
     g=db.scalar(select(Game).where(Game.slug==slug))
     if not g:raise HTTPException(404,"Jogo não encontrado")
     review=db.scalar(select(ModerationReview).where(ModerationReview.game_id==g.id))
     if review and review.status!="approved": raise HTTPException(404,"Jogo não encontrado")
     path=UPLOAD_DIR/g.package_name
-    if not path.is_file():raise HTTPException(503,"Pacote indisponível")
-    return FileResponse(path,media_type="application/zip",filename=f"{slug}.zip",headers={"X-Content-SHA256":g.sha256})
+    if not object_storage.enabled() and not path.is_file():raise HTTPException(503,"Pacote indisponível")
+    try:
+        return stored_file_response(f"packages/{g.package_name}",path,f"{slug}.zip","application/zip",headers={"X-Content-SHA256":g.sha256})
+    except HTTPException as exc:
+        if exc.status_code==404:raise HTTPException(503,"Pacote indisponível") from exc
+        raise
 
 @app.delete("/api/games/{game_id}",status_code=204)
 def delete_game(game_id:int,user:User=Depends(require_user),db:Session=Depends(get_db)):
     game=db.get(Game,game_id)
     if not game: raise HTTPException(404,"Projeto não encontrado")
     if game.developer_id!=user.id and user.id not in MODERATOR_IDS: raise HTTPException(403,"Só o autor pode remover este projeto")
-    (UPLOAD_DIR/game.package_name).unlink(missing_ok=True)
+    delete_stored_file(f"packages/{game.package_name}",UPLOAD_DIR/game.package_name)
     media=db.scalar(select(GameMedia).where(GameMedia.game_id==game_id))
-    if media and media.cover_path:(MEDIA_DIR/media.cover_path).unlink(missing_ok=True)
+    if media and media.cover_path:delete_stored_file(f"media/{media.cover_path}",MEDIA_DIR/media.cover_path)
     if media:db.delete(media)
     review=db.scalar(select(ModerationReview).where(ModerationReview.game_id==game_id))
     if review:db.delete(review)
