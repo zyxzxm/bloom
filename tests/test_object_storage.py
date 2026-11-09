@@ -7,6 +7,8 @@ def test_supabase_storage_upload_download_delete(monkeypatch, tmp_path):
     saved = {"path": None, "payload": None}
 
     def handler(request):
+        assert request.headers["apikey"] == "sb_secret_test"
+        assert "authorization" not in request.headers
         if request.method == "POST":
             saved["path"] = request.url.path
             saved["payload"] = request.read()
@@ -24,7 +26,7 @@ def test_supabase_storage_upload_download_delete(monkeypatch, tmp_path):
     real_client = httpx.Client
     monkeypatch.setattr(object_storage.httpx, "Client", lambda *a, **kw: real_client(*a, transport=transport, **kw))
     monkeypatch.setattr(object_storage, "SUPABASE_URL", "https://bloom.example.supabase.co")
-    monkeypatch.setattr(object_storage, "SUPABASE_SERVICE_ROLE_KEY", "test-secret")
+    monkeypatch.setattr(object_storage, "SUPABASE_SERVICE_ROLE_KEY", "sb_secret_test")
     monkeypatch.setattr(object_storage, "BUCKET", "bloom-assets")
 
     source = tmp_path / "test.zip"
@@ -35,3 +37,10 @@ def test_supabase_storage_upload_download_delete(monkeypatch, tmp_path):
     assert destination.read_bytes() == b"fake zip bytes"
     object_storage.delete_object("packages/test.zip")
     assert saved["path"].endswith("/bloom-assets/packages/test.zip")
+
+
+def test_legacy_service_role_key_keeps_bearer_header(monkeypatch):
+    monkeypatch.setattr(object_storage, "SUPABASE_SERVICE_ROLE_KEY", "legacy-jwt")
+    headers = object_storage._headers()
+    assert headers["apikey"] == "legacy-jwt"
+    assert headers["Authorization"] == "Bearer legacy-jwt"
