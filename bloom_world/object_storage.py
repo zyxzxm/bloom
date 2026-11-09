@@ -25,10 +25,14 @@ def _url(key: str) -> str:
 
 
 def _headers(content_type: str | None = None) -> dict[str, str]:
+    key = SUPABASE_SERVICE_ROLE_KEY
     headers = {
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "apikey": key,
     }
+    # New Supabase API keys are not JWTs and must not be sent as Bearer tokens.
+    # Legacy service_role keys are JWTs and continue to work with both headers.
+    if not key.startswith(("sb_secret_", "sb_publishable_")):
+        headers["Authorization"] = f"Bearer {key}"
     if content_type:
         headers["Content-Type"] = content_type
     return headers
