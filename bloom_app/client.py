@@ -15,7 +15,19 @@ class BloomClient:
     def __init__(self, config_path: Path, state_path: Path, default_config=None):
         self.config_path = Path(config_path)
         self.state_path = Path(state_path)
-        self.config = read_json(self.config_path, dict(default_config or {}))
+        defaults = dict(default_config or {})
+        saved = read_json(self.config_path, {})
+        if not isinstance(saved, dict):
+            saved = {}
+        self.config = {**defaults, **saved}
+        default_api = defaults.get("api_url")
+        if default_api and not saved.get("api_url_default_migrated"):
+            old_api = str(saved.get("api_url", "")).strip().rstrip("/")
+            if old_api in {"", "http://127.0.0.1:8000", "http://localhost:8000"}:
+                self.config["api_url"] = default_api
+            self.config["api_url_default_migrated"] = True
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            self.config_path.write_text(json.dumps(self.config, ensure_ascii=False), encoding="utf-8")
         self.state = read_json(self.state_path, {})
 
     @property

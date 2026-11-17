@@ -1,50 +1,44 @@
-# Publicar o BLOOM — guia simples
+# Compilar o instalador do BLOOM — guia simples
 
-## Para você (uma vez por versão)
+Este pacote contém o código atualizado do cliente. Para esta compilação, use o arquivo `BLOOM-Windows-build-source.zip` fornecido nesta conversa; não precisa baixar Git nem clonar o repositório.
 
-O `.exe` de Windows precisa ser compilado em **um PC Windows**. Este ambiente de trabalho é Linux, então não consigo gerar um `.exe` Windows daqui. O projeto já contém o script para você gerar o instalador no Windows.
+## 1. Prepare o PC que vai compilar
 
-### Antes de compilar
+Instale **Python 3.12** e **Inno Setup 6** no Windows. Python é necessário apenas no PC que cria o instalador; o jogador não precisa de Python. No instalador do Python, marque **Add python.exe to PATH**.
 
-1. Tenha o BLOOM WORLD publicado em um endereço HTTPS que não dependa do seu PC, por exemplo `https://api.seudominio.com`. O instalador pergunta essa URL e testa `/health`. Sem backend online, login, catálogo e comunidade não podem funcionar para os jogadores. Para configurar hospedagem, siga a seção **Implantar a API** do `README.md`.
-2. No PC de compilação, instale **Python 3.12** e **Inno Setup 6**. Python é usado só para compilar no seu PC; Inno Setup empacota o instalador.
-3. Descompacte a pasta `bloom` no Windows. Clique com o botão direito em `build_windows.ps1` e escolha **Executar com PowerShell**, ou abra PowerShell na pasta e rode:
+## 2. Extraia o projeto
+
+1. Baixe `BLOOM-Windows-build-source.zip` pelo link desta conversa.
+2. No Explorador de Arquivos, clique com o botão direito no ZIP e escolha **Extrair Tudo**.
+3. Abra a pasta extraída e confirme que nela aparecem `build_windows.ps1`, `requirements-client.txt`, `bloom_app` e `installer`.
+
+## 3. Gere o instalador
+
+Dentro da pasta extraída, clique na barra de endereço do Explorador de Arquivos, digite `powershell` e pressione **Enter**. Na janela do PowerShell, execute estes comandos, um por vez:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
 .\build_windows.ps1
 ```
 
-O script cria sozinho um ambiente de build isolado, instala dependências de compilação, confirma que a API responde e produz:
+A primeira linha só permite executar o script nesta janela; não altera permanentemente a segurança do Windows.
+
+Quando o script perguntar a URL HTTPS da API, pressione **Enter** para aceitar o padrão `https://bloom-world.onrender.com`. O script verifica a API, instala as ferramentas de build no ambiente isolado `.venv-build` e compila o cliente.
+
+## 4. Aguarde e encontre o instalador
+
+O BLOOM WORLD usa o plano gratuito do Render. Depois de um período sem uso, a API pode “dormir” e a primeira conexão pode levar aproximadamente **50 segundos** para acordar. Deixe o PowerShell aberto: o script tenta novamente enquanto o serviço inicia. Se todas as tentativas falharem, abra `https://bloom-world.onrender.com/health` no navegador, espere aparecer `"status":"ok"` e execute o script novamente.
+
+Com o Inno Setup 6 instalado, o arquivo final estará em:
 
 ```text
 release\BLOOM-Setup.exe
 ```
 
-Se o Windows perguntar, permita a execução do seu próprio script. Se o Inno Setup não estiver instalado, o script ainda gera `release\BLOOM.exe`; instale Inno Setup 6 para o instalador com atalho e desinstalação.
+Se o Inno Setup não estiver instalado, o script pode produzir somente `release\BLOOM.exe`. Instale o Inno Setup 6 e rode o script novamente para gerar o instalador com atalho e desinstalação.
 
-Antes de disponibilizar ao público, instale e teste `BLOOM-Setup.exe` num Windows 10/11 limpo, idealmente numa máquina virtual. Confira instalação, inicialização, cadastro, catálogo e download. Publique o instalador por HTTPS e compartilhe o hash SHA-256 por um canal confiável.
+## Para os jogadores
 
-## Para o jogador
+Publique e distribua somente `BLOOM-Setup.exe`. Quem jogar baixa, instala e abre o BLOOM pelo atalho; não precisa instalar Python, Git, PowerShell ou configurar a URL da API. O servidor já está hospedado separadamente; não distribua um `BLOOM-Server.exe`.
 
-O jogador **não instala Python**, não abre terminal, não configura a URL da API e não precisa ver código. Ele só:
-
-1. Baixa `BLOOM-Setup.exe` do seu site.
-2. Abre o instalador e clica em **Avançar/Instalar**.
-3. Abre o BLOOM pelo atalho.
-4. Cria uma conta para usar a comunidade/loja.
-
-A instalação ocorre no perfil do próprio usuário. Os dados ficam em `%APPDATA%\BLOOM`. O servidor online fica separado na nuvem.
-
-## Limite importante
-
-O instalador client só funciona com serviços online se você já tiver colocado o BLOOM WORLD no ar e usar a URL real dele ao compilar. Eu não publiquei o backend por você: isso exige uma conta/servidor externo. Hospedar e compilar são dois passos diferentes. Não distribua uma build apontada a um endereço de exemplo ou localhost.
-
-
-## Um ou dois executáveis? E o itch.io
-
-O BLOOM pode ter um `BLOOM.exe` (aplicativo do jogador) e, tecnicamente, um executável separado do servidor para quem quiser hospedar uma instância própria. Isso **não** faz dois arquivos distribuídos no itch.io virarem automaticamente um serviço online compartilhado.
-
-Para todos os jogadores verem o mesmo catálogo, feed e contas, o servidor precisa ficar ligado num host acessível pela internet, com endereço HTTPS, banco persistente, armazenamento dos pacotes, backups e manutenção. O caminho previsto neste projeto é hospedar `BLOOM WORLD` separadamente (por exemplo, numa VM com Docker) e publicar no itch.io apenas o instalador do cliente configurado com a URL pública. O itch.io distribui arquivos; não mantém esta API FastAPI e seu banco rodando.
-
-Um `BLOOM-Server.exe` distribuído pode servir para testes locais, uma rede privada ou auto-hospedagem avançada. O computador que o executar precisaria permanecer ligado e ser acessível pela rede; expor uma máquina pessoal à internet exige configuração e cuidados de segurança. Se cada jogador executar sua própria cópia do servidor, cada pessoa terá uma comunidade/banco separado, não uma comunidade única para todos.
+**Nota sobre o GitHub:** a cópia `main` do repositório ainda não recebeu este commit, porque o envio foi recusado pela permissão de gravação do conector. Use o ZIP desta conversa para compilar agora; ele contém as alterações testadas.

@@ -7,18 +7,32 @@ Write-Host '  BLOOM — GERADOR DE VERSAO PARA WINDOWS' -ForegroundColor Cyan
 Write-Host '  Uma execucao aqui; o jogador recebe o instalador e nao precisa de Python.' -ForegroundColor DarkCyan
 Write-Host ''
 
-$ApiUrl = Read-Host 'URL HTTPS publica da API (ex.: https://api.seudominio.com)'
-$ApiUrl = $ApiUrl.Trim().TrimEnd('/')
+$DefaultApiUrl = 'https://bloom-world.onrender.com'
+$ApiInput = Read-Host "URL HTTPS publica da API (Enter usa $DefaultApiUrl)"
+if ([string]::IsNullOrWhiteSpace($ApiInput)) {
+    $ApiUrl = $DefaultApiUrl
+} else {
+    $ApiUrl = $ApiInput.Trim().TrimEnd('/')
+}
 if (-not $ApiUrl.StartsWith('https://')) {
     throw 'A URL precisa comecar com https://. Publique o BLOOM WORLD antes de gerar a versao distribuivel.'
 }
 
-try {
-    $health = Invoke-RestMethod -Uri "$ApiUrl/health" -TimeoutSec 10
-    if ($health.status -ne 'ok') { throw 'Resposta de health inesperada.' }
-    Write-Host "API online: $($health.service) $($health.version)" -ForegroundColor Green
-} catch {
-    throw "Nao consegui confirmar $ApiUrl/health. Publique e teste a API antes de compilar. Detalhe: $($_.Exception.Message)"
+Write-Host 'A API gratuita do Render pode levar cerca de 50 segundos para acordar apos ficar sem uso.' -ForegroundColor DarkYellow
+for ($Attempt = 1; $Attempt -le 7; $Attempt++) {
+    try {
+        $health = Invoke-RestMethod -Uri "$ApiUrl/health" -TimeoutSec 15
+        if ($health.status -ne 'ok') { throw 'Resposta de health inesperada.' }
+        Write-Host "API online: $($health.service) $($health.version)" -ForegroundColor Green
+        break
+    } catch {
+        $HealthError = $_.Exception.Message
+        if ($Attempt -eq 7) {
+            throw "Nao consegui confirmar $ApiUrl/health apos varias tentativas. Detalhe: $HealthError"
+        }
+        Write-Host "API iniciando; nova tentativa em 5 segundos ($Attempt/7)..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 5
+    }
 }
 
 $VenvPython = Join-Path $Root '.venv-build\Scripts\python.exe'
