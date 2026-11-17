@@ -4,6 +4,7 @@ WORKDIR /app
 COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY bloom_world ./bloom_world
+COPY web ./web
 RUN mkdir -p /data/packages && useradd --create-home --uid 10001 bloom && chown -R bloom:bloom /app /data
 USER bloom
 EXPOSE 8000

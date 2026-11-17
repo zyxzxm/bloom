@@ -101,6 +101,8 @@ def test_optional_avatar_project_cover_moderation_and_owner_delete():
     from PIL import Image
     c=TestClient(app);suffix=uuid.uuid4().hex[:8];account=_new_user(c,"media"+suffix)
     headers={"Authorization":"Bearer "+account["access_token"]}
+    fallback=c.get(f"/api/users/{account['user']['username']}/avatar")
+    assert fallback.status_code==200 and fallback.headers["content-type"].startswith("image/svg+xml")
     image=io.BytesIO();Image.new("RGB",(8,8),(30,170,160)).save(image,format="PNG");image.seek(0)
     avatar=c.put("/api/me/avatar",headers=headers,files={"file":("avatar.png",image,"image/png")})
     assert avatar.status_code==200,avatar.text
@@ -112,6 +114,10 @@ def test_optional_avatar_project_cover_moderation_and_owner_delete():
     result=c.post("/api/games",headers=headers,data={"name":"Demo project","version":"1.0","description":"safe","format":"bloom"},files={"file":("demo.zip",archive,"application/zip")})
     assert result.status_code==201,result.text
     game=result.json();assert game["status"]=="published"
+    detail=c.get(f"/api/games/{game['slug']}").json()
+    assert detail["developer_id"]==account["user"]["id"]
+    rating=c.post(f"/api/games/{game['id']}/rating",headers=headers,json={"score":5})
+    assert rating.status_code==200 and rating.json()["average"]==5.0
     cover=io.BytesIO();Image.new("RGB",(16,9),(40,80,120)).save(cover,format="PNG");cover.seek(0)
     uploaded=c.put(f"/api/games/{game['id']}/cover",headers=headers,files={"file":("cover.png",cover,"image/png")})
     assert uploaded.status_code==200,uploaded.text
@@ -158,6 +164,30 @@ def test_report_message_and_manual_game_review():
     finally:world.MODERATOR_IDS.discard(a["user"]["id"])
 
 
+def test_desktop_client_uses_hosted_api_url_as_default(tmp_path):
+    from bloom_app.client import BloomClient
+
+    api_url = "https://bloom-world.onrender.com"
+    client = BloomClient(tmp_path / "settings.json", tmp_path / "state.json", {"api_url": api_url})
+    assert client.base == api_url
+
+
+def test_desktop_client_migrates_legacy_local_api_once(tmp_path):
+    from bloom_app.client import BloomClient
+
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps({"api_url": "http://127.0.0.1:8000", "language": "pt-BR"}), encoding="utf-8")
+    api_url = "https://bloom-world.onrender.com"
+    client = BloomClient(settings, tmp_path / "state.json", {"api_url": api_url})
+    assert client.base == api_url
+    assert client.config["language"] == "pt-BR"
+
+    client.config["api_url"] = "http://localhost:8000"
+    settings.write_text(json.dumps(client.config), encoding="utf-8")
+    reopened = BloomClient(settings, tmp_path / "state.json", {"api_url": api_url})
+    assert reopened.base == "http://localhost:8000"
+
+
 def test_desktop_client_sends_api_access_token(monkeypatch, tmp_path):
     from bloom_app.client import BloomClient
 
@@ -180,3 +210,20 @@ def test_desktop_client_sends_api_access_token(monkeypatch, tmp_path):
     client.state = {"access_token": "test-token", "token_type": "bearer"}
     client.request("POST", "/api/posts", json={"body": "teste"})
     assert captured["Authorization"] == "Bearer test-token"
+
+
+def test_web_companion_is_served_without_shadowing_api():
+    client = TestClient(app)
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "BLOOM — A world of color" in page.text
+    assert client.get("/app.js").status_code == 200
+    assert client.get("/app.css").status_code == 200
+    assert client.get("/assets/bloom-mark.svg").status_code == 200
+    assert client.get("/assets/social/itchdotio.svg").status_code == 200
+    assert client.get("/assets/social/tiktok.svg").status_code == 200
+    assert client.head("/assets/audio/aqua-ambient.mp3").status_code == 200
+    assert client.get("/assets/aero-world.webp").status_code == 200
+    assert client.get("/health").json()["status"] == "ok"
+    assert client.get("/docs").status_code == 200
+    assert client.get("/api/no-such-route").status_code == 404

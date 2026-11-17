@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#a5efff">
+  <meta name="description" content="BLOOM — uma comunidade indie que floresce entre natureza, jogos e tecnologia.">
+  <title>BLOOM — A world of color, nature and technology</title>
+  <link rel="icon" href="/assets/bloom-mark.svg" type="image/svg+xml">
+  <link rel="preload" href="/assets/aero-world.webp" as="image" fetchpriority="high">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="ambient-scene" aria-hidden="true">
+    <div class="sky-glow"></div><div class="orb orb-one"></div><div class="orb orb-two"></div>
+    <div class="float-bubble bubble-one"></div><div class="float-bubble bubble-two"></div><div class="float-bubble bubble-three"></div>
+    <div class="scene-grain"></div>
+  </div>
+  <div class="app-shell">
+    <aside class="side-rail glass-panel" aria-label="Navegação principal">
+      <a class="brand-lockup" href="#home" data-view="home" aria-label="BLOOM início">
+        <span class="brand-orb"><span></span></span><span class="brand-name">BLOOM<small>WORLD GARDEN</small></span>
+      </a>
+      <div class="rail-label">SEU JARDIM</div>
+      <nav class="primary-nav">
+        <button class="nav-item active" data-view="home"><span class="nav-icon">◈</span><span>Início</span><i></i></button>
+        <button class="nav-item" data-view="feed"><span class="nav-icon">✿</span><span>Comunidade</span><i></i></button>
+        <button class="nav-item" data-view="explore"><span class="nav-icon">◎</span><span>Explorar jogos</span><i></i></button>
+        <button class="nav-item" data-view="maker"><span class="nav-icon">✦</span><span>Maker studio</span><i></i></button>
+        <button class="nav-item" data-view="profile"><span class="nav-icon">◉</span><span>Meu perfil</span><i></i></button>
+      </nav>
+      <div class="rail-divider"></div>
+      <button class="nav-item chat-nav" data-action="open-chat"><span class="nav-icon">◌</span><span>Conversas</span><b id="chat-badge" class="nav-badge" hidden></b><i></i></button>
+      <div class="rail-spacer"></div>
+      <section class="rail-now-playing" aria-label="Trilha sonora">
+        <div class="sound-orb"><span>♫</span><b></b></div>
+        <div class="sound-copy"><small>ATMOSFERA AGORA</small><strong id="track-label">Aqua Garden</strong></div>
+        <button id="sound-toggle" class="icon-button sound-toggle" aria-label="Tocar música" title="Tocar música"><span id="sound-glyph">▶</span></button>
+        <div class="sound-controls"><label for="sound-mode">Paisagem sonora</label><select id="sound-mode" aria-label="Escolher paisagem sonora"><option value="aqua">Aqua Garden · CC0</option><option value="green">Green Aero · filtro vivo</option><option value="zen">Technozen · filtro suave</option></select><label class="volume-row" for="volume-slider">Volume <input id="volume-slider" type="range" min="0" max="100" value="32" aria-label="Volume da música"></label></div>
+      </section>
+      <div class="rail-bottom">
+        <span class="status-seed"><i></i><span id="api-status">conectando ao mundo</span></span>
+        <button class="nav-item tiny-nav" data-action="settings"><span class="nav-icon">⚙</span><span>Configurações</span></button>
+        <p class="credit-line">BLOOM — Created by ZYXZXM.</p>
+      </div>
+    </aside>
+
+    <main id="main-content" class="main-column" tabindex="-1">
+      <header class="topbar">
+        <div class="breadcrumb"><span class="breadcrumb-flower">✿</span><span>Um mundo em flor</span><span class="crumb-dot">/</span><b id="page-title">Seu jardim</b></div>
+        <div class="topbar-actions">
+          <label class="search-pill"><span>⌕</span><input id="global-search" type="search" placeholder="Busque jogos, mundos..." aria-label="Buscar jogos"><kbd>↵</kbd></label>
+          <button class="round-action" data-action="settings" aria-label="Configurações" title="Configurações">⚙</button>
+          <button id="account-button" class="account-pill" data-action="auth"><span class="avatar-small" id="account-avatar">✿</span><span id="account-name">Entrar</span><span class="chevron">⌄</span></button>
+        </div>
+      </header>
+      <div id="view-root" class="view-root" aria-live="polite"></div>
+      <footer class="page-footer"><span>BLOOM — Created by ZYXZXM.</span><span class="footer-links"><a href="https://zyx4415.itch.io/bloom" target="_blank" rel="noopener noreferrer" aria-label="BLOOM no itch.io"><img src="/assets/social/itchdotio.svg" alt=""/>itch.io</a><a href="https://www.tiktok.com/@bloom.games.and.c" target="_blank" rel="noopener noreferrer" aria-label="BLOOM no TikTok"><img src="/assets/social/tiktok.svg" alt=""/>TikTok</a></span></footer>
+    </main>
+
+    <aside class="right-rail" aria-label="Descobertas e atividade">
+      <section class="weather-card glass-panel">
+        <div class="weather-copy"><span class="micro-label">BLOOM WORLD</span><h2>Um lugar<br>para florescer.</h2><p>Ideias pequenas.<br>Mundos inteiros.</p><button class="text-cta" data-view="explore">Descubra algo novo <span>↗</span></button></div>
+        <div class="weather-art"><div class="mini-cloud cloud-a"></div><div class="mini-cloud cloud-b"></div><div class="weather-sun"></div><div class="weather-hill hill-a"></div><div class="weather-hill hill-b"></div><span class="art-orbit"></span></div>
+      </section>
+      <section class="side-card trending-card"><div class="section-cap"><div><span class="micro-label">A BROTAR AGORA</span><h3>Em destaque</h3></div><span class="live-dot" aria-label="Atualizado agora"></span></div><div id="trending-list" class="trending-list"><div class="skeleton-line"></div><div class="skeleton-line short"></div></div><button class="side-link" data-view="explore">Ver o jardim inteiro <span>→</span></button></section>
+      <section class="side-card community-note"><div class="mini-bubbles"><i></i><i></i><i></i></div><span class="micro-label">CRESCE JUNTO</span><p>Um espaço mais bonito nasce quando todo mundo pode criar e compartilhar.</p><button data-view="feed">Fazer parte <span>↗</span></button></section>
+      <section class="social-card"><span class="micro-label">ENCONTRE A GENTE POR AÍ</span><a href="https://zyx4415.itch.io/bloom" target="_blank" rel="noopener noreferrer"><img src="/assets/social/itchdotio.svg" alt="">O jardim no itch.io <span>↗</span></a><a href="https://www.tiktok.com/@bloom.games.and.c" target="_blank" rel="noopener noreferrer"><img src="/assets/social/tiktok.svg" alt="">Pequenos mundos no TikTok <span>↗</span></a></section>
+      <p class="right-credit">BLOOM — Created by ZYXZXM.</p>
+    </aside>
+  </div>
+
+  <nav class="mobile-nav glass-panel" aria-label="Navegação mobile">
+    <button class="mobile-tab active" data-view="home"><span>◈</span><small>Início</small></button><button class="mobile-tab" data-view="feed"><span>✿</span><small>Comunidade</small></button><button class="mobile-tab discover-tab" data-view="explore"><span>◎</span><small>Explorar</small></button><button class="mobile-tab" data-view="maker"><span>✦</span><small>Maker</small></button><button class="mobile-tab" data-view="profile"><span>◉</span><small>Perfil</small></button>
+  </nav>
+  <button id="chat-fab" class="chat-fab" data-action="open-chat" aria-label="Abrir conversas"><span class="chat-fab-symbol">◌</span><span class="chat-fab-label">Conversar</span><i class="chat-fab-pulse"></i></button>
+  <section id="chat-dock" class="chat-dock glass-panel" aria-label="Conversas BLOOM" hidden></section>
+  <dialog id="app-dialog" class="app-dialog"></dialog>
+  <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
+  <div id="audio-players" hidden><audio id="aqua-track" src="/assets/audio/aqua-ambient.mp3" preload="none" loop></audio></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
