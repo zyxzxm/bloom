@@ -8,10 +8,13 @@ from bloom_app.client import BloomClient
 from bloom_safe.scanner import inspect_package
 from bloom_safe.installer import safe_extract
 from bloom_app.localization import LANGUAGES, translate
+DEFAULT_API_URL = "https://bloom-world.onrender.com"
 try:
     from bloom_app.build_config import API_URL as BUILD_API_URL
 except ImportError:
-    BUILD_API_URL = ""
+    BUILD_API_URL = DEFAULT_API_URL
+if not BUILD_API_URL:
+    BUILD_API_URL = DEFAULT_API_URL
 
 APP_NAME="BLOOM"
 def data_home():
