@@ -57,7 +57,7 @@ Set-Content -Path $BuildConfigPath -Value $Generated -Encoding UTF8
 
 Write-Host 'Compilando aplicativo BLOOM...' -ForegroundColor Yellow
 try {
-    & $VenvPython -m PyInstaller --noconfirm --clean --windowed --onefile --name BLOOM --icon (Join-Path $Root 'assets\bloom.ico') --paths $Root --hidden-import bloom_safe.scanner --hidden-import bloom_safe.installer --hidden-import bloom_maker.editor --hidden-import bloom_app.localization --collect-all pygame --collect-all PIL bloom_app\main.py
+    & $VenvPython -m PyInstaller --noconfirm --clean --windowed --onefile --name BLOOM --icon (Join-Path $Root 'assets\bloom.ico') --paths $Root --add-data (Join-Path $Root 'web;web') --hidden-import webview.platforms.edgechromium --hidden-import webview.platforms.edgechromium.EdgeChromium --hidden-import bloom_app.web_desktop --hidden-import bloom_app.main --hidden-import bloom_safe.scanner --hidden-import bloom_safe.installer --hidden-import bloom_maker.editor bloom_app\web_desktop.py
     if ($LASTEXITCODE -ne 0) { throw 'PyInstaller falhou.' }
 } finally {
     [System.IO.File]::WriteAllBytes($BuildConfigPath, $OriginalBuildConfig)

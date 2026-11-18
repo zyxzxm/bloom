@@ -7,7 +7,7 @@
   <meta name="description" content="BLOOM — uma comunidade indie que floresce entre natureza, jogos e tecnologia.">
   <title>BLOOM — A world of color, nature and technology</title>
   <link rel="icon" href="/assets/bloom-mark.svg" type="image/svg+xml">
-  <link rel="preload" href="/assets/aero-world.webp" as="image" fetchpriority="high">
+  <link rel="preload" href="/assets/aero-world-2026.webp" as="image" fetchpriority="high">
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
@@ -36,7 +36,7 @@
         <div class="sound-orb"><span>♫</span><b></b></div>
         <div class="sound-copy"><small>ATMOSFERA AGORA</small><strong id="track-label">Aqua Garden</strong></div>
         <button id="sound-toggle" class="icon-button sound-toggle" aria-label="Tocar música" title="Tocar música"><span id="sound-glyph">▶</span></button>
-        <div class="sound-controls"><label for="sound-mode">Paisagem sonora</label><select id="sound-mode" aria-label="Escolher paisagem sonora"><option value="aqua">Aqua Garden · CC0</option><option value="green">Green Aero · filtro vivo</option><option value="zen">Technozen · filtro suave</option></select><label class="volume-row" for="volume-slider">Volume <input id="volume-slider" type="range" min="0" max="100" value="32" aria-label="Volume da música"></label></div>
+        <div class="sound-controls"><label for="sound-mode">Paisagem sonora</label><select id="sound-mode" aria-label="Escolher paisagem sonora"><option value="aqua">Aqua Garden · trilha original</option><option value="green">Green Aero · filtro vivo</option><option value="zen">Technozen · filtro suave</option></select><label class="volume-row" for="volume-slider">Volume <input id="volume-slider" type="range" min="0" max="100" value="32" aria-label="Volume da música"></label></div>
       </section>
       <div class="rail-bottom">
         <span class="status-seed"><i></i><span id="api-status">conectando ao mundo</span></span>
@@ -50,6 +50,7 @@
         <div class="breadcrumb"><span class="breadcrumb-flower">✿</span><span>Um mundo em flor</span><span class="crumb-dot">/</span><b id="page-title">Seu jardim</b></div>
         <div class="topbar-actions">
           <label class="search-pill"><span>⌕</span><input id="global-search" type="search" placeholder="Busque jogos, mundos..." aria-label="Buscar jogos"><kbd>↵</kbd></label>
+          <button id="desktop-tools" class="button-quiet desktop-tools-button" type="button" hidden>Ferramentas locais</button>
           <button class="round-action" data-action="settings" aria-label="Configurações" title="Configurações">⚙</button>
           <button id="account-button" class="account-pill" data-action="auth"><span class="avatar-small" id="account-avatar">✿</span><span id="account-name">Entrar</span><span class="chevron">⌄</span></button>
         </div>
@@ -77,7 +78,7 @@
   <section id="chat-dock" class="chat-dock glass-panel" aria-label="Conversas BLOOM" hidden></section>
   <dialog id="app-dialog" class="app-dialog"></dialog>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
-  <div id="audio-players" hidden><audio id="aqua-track" src="/assets/audio/aqua-ambient.mp3" preload="none" loop></audio></div>
+  <div id="audio-players" hidden><audio id="aqua-track" src="/assets/audio/bloom-aqua-ambience-2026.mp3" preload="none" loop></audio></div>
   <script src="/app.js" defer></script>
 </body>
 </html>

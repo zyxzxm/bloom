@@ -4,6 +4,14 @@
 
 > **Status do deploy de teste:** a API BLOOM WORLD está publicada em [bloom-world.onrender.com](https://bloom-world.onrender.com); `GET /health` e `GET /api/games` respondem. O serviço está no plano Render Free, usa Postgres e bucket privado Supabase e pode dormir quando fica inativo. A persistência de mídia foi configurada, mas não foi validada com upload real de jogador. Este repositório agora inclui uma interface web servida na raiz pela aplicação, que ficará disponível no deploy após o novo build/atualização do serviço. Não foi gerado um executável Windows nesta máquina Linux. A triagem de segurança é limitada; não existe antivírus comercial nem sandbox de execução do Windows. A API não usa localhost por padrão; use localhost apenas para desenvolvimento deliberado. A plataforma nunca inicia um jogo automaticamente.
 
+
+## BLOOM visual 2026 e compilação
+
+A interface web responsiva agora usa novas ilustrações do oceano-jardim e uma trilha ambiente original, com controle de tocar/pausar/volume. As imagens e o áudio estão em `web/assets/`; a pasta `web/` é copiada para o APK pelo Gradle e embutida no EXE pelo script Windows. O EXE abre a interface numa janela WebView local e mantém o botão **Ferramentas locais** para chamar o cliente Tkinter com Maker/Safe/biblioteca. O runtime WebView2 do Edge precisa estar instalado. O tutorial completo fica em [`docs/BUILD-APK-EXE.md`](docs/BUILD-APK-EXE.md).
+
+**Crédito exibido no produto:** `BLOOM — Created by ZYXZXM.`
+
+
 ## Conteúdo
 
 - `bloom_app/`: cliente desktop, loja, feed, biblioteca, perfis, chats e configurações multilíngues.

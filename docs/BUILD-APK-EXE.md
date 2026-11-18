@@ -12,7 +12,7 @@ $env:BLOOM_API_URL = 'https://bloom-world.onrender.com'
 .\build_windows.ps1
 ```
 
-O script cria o ambiente isolado `.venv-build`, instala as dependências e verifica a rota `/health` da API antes de compilar. O executável sai em `release\BLOOM.exe`. Se Inno Setup 6 estiver instalado, também será produzido `release\BLOOM-Setup.exe`. O computador que vai apenas executar o app não precisa ter Python.
+O script cria o ambiente isolado `.venv-build`, instala `pywebview` e as dependências e verifica a rota `/health` da API antes de compilar. O EXE incorpora toda a pasta `web/` (HTML, CSS, JavaScript, imagens e trilha), abre a nova experiência em uma janela WebView e serve os arquivos localmente. O runtime WebView2 do Microsoft Edge precisa estar presente no Windows (já vem instalado no Windows 11 e em muitos Windows 10 atualizados; o build não inclui o runtime). O executável sai em `release\BLOOM.exe`. Se Inno Setup 6 estiver instalado, também será produzido `release\BLOOM-Setup.exe`. O computador que vai apenas executar o app não precisa ter Python.
 
 Para usar outra API, altere `BLOOM_API_URL` para a URL pública HTTPS antes do comando. Nunca use `localhost` em um executável destinado a outras pessoas. O EXE resultante não inclui certificado de publisher; o Windows SmartScreen pode exibir um aviso.
 

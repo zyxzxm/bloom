@@ -25,3 +25,9 @@ Os arquivos `web/assets/social/itchdotio.svg` e `web/assets/social/tiktok.svg` s
 - Licença do projeto: https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md
 - itch.io: https://itch.io/
 - TikTok: https://www.tiktok.com/
+
+## Novos ativos da reformulação 2026
+
+`web/assets/aero-world-2026.webp` e `web/assets/aero-garden-2026.webp` são novas ilustrações originais criadas especificamente para o BLOOM em 18/11/2026 e servidas em WebP otimizado. Não reutilizam arquivos fotográficos, wallpapers ou imagens de terceiros. Os arquivos brutos em PNG foram convertidos para WebP e não são distribuídos.
+
+`web/assets/audio/bloom-aqua-ambience-2026.mp3` é uma nova composição instrumental de ambiente criada especificamente para esta versão do BLOOM em 18/11/2026. Não contém samples de faixas de terceiros. A trilha anterior `aqua-ambient.mp3` permanece no repositório como ativo CC0 documentado acima; a interface atual aponta para a nova faixa. O player continua sob controle explícito da pessoa usuária.

@@ -33,8 +33,9 @@
 
 ## 7. GitHub, documentação e publicação
 - [x] Trabalhar diretamente no repositório BLOOM em GitHub.
-- [x] Publicar alterações de código, imagens, áudio e documentação; atualizar README; organizar commits.
-- [x] Preservar commits e histórico existentes; integrar sem force-push nem apagar trabalho original.
+- [ ] Publicar alterações de código, imagens, áudio e documentação no repositório GitHub; atualizar README e organizar commits. Bloqueado pelo HTTP 403 de escrita no remoto nesta sessão.
+- [x] Preservar commits e histórico local existentes; nenhuma alteração destrutiva/force-push foi feita.
+- [ ] Confirmar a publicação no repositório remoto após restabelecer acesso de escrita.
 
 ## 8. Validação e desempenho
 - [x] Executar o projeto; testar funcionalidades, links, áudio, navegação, desktop e mobile; corrigir erros e otimizar.

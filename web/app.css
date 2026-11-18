@@ -6,3 +6,40 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.orb,.float-bubble,.sound-orb b{animation:none}}
 
 .mobile-audio-button{display:none;height:34px;width:34px;flex:none;border:1px solid white;border-radius:12px;background:linear-gradient(140deg,#e7fff5,#d9faff);color:#348f96;box-shadow:0 3px 13px #62b7b326;font-size:16px}.mobile-audio-button:hover{transform:translateY(-1px)}@media(max-width:760px){.mobile-audio-button{display:grid;place-items:center}}
+
+/* BLOOM 2026 — nova camada visual Aqua Aero / Green Aero */
+.hero{min-height:clamp(360px,38vw,500px);border-radius:32px;box-shadow:0 26px 58px #0b819044,inset 0 1px 0 #ffffff}
+.hero:after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#063c55d9 0%,#0758759c 37%,#07587515 74%,transparent),linear-gradient(0deg,#063c5538,transparent 45%);pointer-events:none}
+.hero-image{object-position:center 52%;transform:scale(1.015);animation:hero-drift 28s ease-in-out infinite alternate}
+@keyframes hero-drift{from{transform:scale(1.015) translateX(0)}to{transform:scale(1.075) translateX(-.6%)}}
+.hero-copy{max-width:510px;padding:clamp(25px,4vw,50px);padding-top:clamp(38px,5vw,67px)}
+.hero h1{font-size:clamp(36px,5.1vw,66px);line-height:.94;text-shadow:0 5px 28px #003c5a8c}
+.hero p{max-width:430px;font-size:clamp(14px,1.25vw,17px);line-height:1.6;text-shadow:0 2px 12px #003c5a9c}
+.hero-chip{backdrop-filter:blur(18px);background:#e8fff2bd;border:1px solid #ffffffd9;box-shadow:0 12px 32px #00465d30}
+.feature-card{border-radius:24px;background:linear-gradient(145deg,#ffffffed,#cffff0e8 56%,#b1f1e9);box-shadow:0 12px 28px #1c8a8129,inset 0 1px 0 white}
+.feature-card:hover{transform:translateY(-5px) rotateX(2deg);box-shadow:0 18px 36px #09817a34}
+.garden-panel{position:relative;isolation:isolate;min-height:240px;margin:22px 0 26px;overflow:hidden;border-radius:28px;border:1px solid #fff;box-shadow:0 20px 44px #177b7a30;background:#087d8f}
+.garden-panel>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 56%;z-index:-2;transition:transform .9s cubic-bezier(.2,.7,.2,1)}
+.garden-panel:hover>img{transform:scale(1.045)}
+.garden-panel:after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#063e50da,#064c5e97 42%,#064c5e08 100%)}
+.garden-panel-copy{max-width:540px;padding:27px 30px;color:white}
+.garden-panel-copy h2{font-size:clamp(25px,3vw,39px);line-height:1.03;margin:10px 0;text-shadow:0 3px 20px #003c5c90}
+.garden-panel-copy p{max-width:370px;font-size:14px;line-height:1.55;text-shadow:0 2px 10px #003c5c99}
+.garden-panel .micro-label{color:#c7ffdc}
+.garden-panel .button-glass{margin-top:8px;background:#eefff0d9;color:#126f70;border:1px solid white;backdrop-filter:blur(12px)}
+.explore-banner{position:relative;isolation:isolate;min-height:240px;overflow:hidden;border:1px solid #fff;border-radius:28px;background:#107d8d;box-shadow:0 18px 40px #187e8436}
+.explore-banner-image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 55%;z-index:-2;transition:transform .8s}
+.explore-banner:hover .explore-banner-image{transform:scale(1.04)}
+.explore-banner:after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#064253e8,#075265ad 50%,#07526518)}
+.explore-banner-copy{position:relative;max-width:570px;padding:26px 30px;color:white}
+.explore-banner h2{font-size:clamp(28px,3.4vw,43px);text-shadow:0 3px 19px #003e597e}
+.explore-banner p{font-size:14px;line-height:1.6;text-shadow:0 2px 12px #003e598f}
+.explore-banner .eyebrow{color:#eaffec}
+.weather-card{background:linear-gradient(130deg,#c6fff0e8,#b4efffe8 52%,#d7ffd0e8);box-shadow:0 15px 38px #20979f2b,inset 0 1px 0 white}
+.side-card,.post-card,.game-card,.maker-board{box-shadow:0 13px 35px #11818b1d,inset 0 1px 0 #ffffff}
+.glass-panel{backdrop-filter:blur(20px) saturate(1.35)}
+@media(max-width:760px){.hero{min-height:410px;border-radius:26px}.hero:after{background:linear-gradient(90deg,#063c55b8,#07587552 66%,#07587510),linear-gradient(0deg,#063c5559,transparent 60%)}.hero-copy{max-width:100%;padding:30px 22px}.hero-chip{left:16px;right:auto;bottom:14px}.garden-panel{min-height:290px;margin:19px 0}.garden-panel-copy{padding:23px 20px}.explore-banner{min-height:290px}.explore-banner-copy{padding:23px 20px}.explore-banner-image{object-position:58% center}}
+@media(max-width:390px){.hero{min-height:390px}.hero h1{font-size:38px}.garden-panel-copy h2{font-size:27px}}
+@media(prefers-reduced-motion:reduce){.hero-image{animation:none}}
+
+.desktop-tools-button{padding:8px 10px;font-size:11px;white-space:nowrap}@media(max-width:760px){.desktop-tools-button{display:none!important}}
