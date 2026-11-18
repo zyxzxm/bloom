@@ -5,7 +5,7 @@
   function safeParse(value) { try { return JSON.parse(value); } catch { return null; } }
   const state = {
     view: 'home', token: localStorage.getItem('bloom.token') || '', user: safeParse(localStorage.getItem('bloom.user')),
-    api: (localStorage.getItem('bloom.api') || '').replace(/\/$/, ''), gameQuery: '', category: '', chats: [], activeChat: null,
+    api: (localStorage.getItem('bloom.api') || new URLSearchParams(location.search).get('api') || '').replace(/\/$/, ''), gameQuery: '', category: '', chats: [], activeChat: null,
     messageTimer: null, makerShape: 'circle', makerItems: safeParse(localStorage.getItem('bloom.maker')) || [], soundPlaying: false,
     commentsOpen: new Set(), commentCache: new Map(), searchTimer: null
   };

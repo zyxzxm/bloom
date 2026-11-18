@@ -10,9 +10,14 @@
 - `bloom_world/`: API FastAPI, persistência SQLAlchemy e endpoints para contas, termos, posts, comentários, chats, denúncias, catálogo, moderação e downloads.
 - `bloom_maker/`: protótipo de editor visual de cenas 2D com eventos/blocos, objetos, imagem, áudio, salvamento e exportação ZIP.
 - `bloom_safe/`: hash SHA-256, inspeção básica de ZIP, indicadores de risco e ressalva explícita de que isso não é antivírus.
+- `android/`: projeto Android WebView para empacotar localmente a interface web e usar a API HTTPS.
 - `assets/bloom.json.example`: modelo de manifesto; `assets/bloom.ico`: ícone original.
 - `tests/`: verificações automatizadas.
 - `Dockerfile`: imagem para hospedar só a API.
+
+## Compilar o desktop e o aplicativo Android
+
+O executável Windows é compilado no Windows com PyInstaller; o APK Android é compilado a partir de `android/` com JDK 17 e Android SDK 35. O APK inclui a interface web e depende de internet para acessar a API hospedada. Siga o [tutorial completo de build do APK e do EXE](docs/BUILD-APK-EXE.md); um ZIP de fontes não é um binário compilado.
 
 ## O que funciona nesta versão
 

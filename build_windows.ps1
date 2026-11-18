@@ -8,7 +8,10 @@ Write-Host '  Uma execucao aqui; o jogador recebe o instalador e nao precisa de 
 Write-Host ''
 
 $DefaultApiUrl = 'https://bloom-world.onrender.com'
-$ApiInput = Read-Host "URL HTTPS publica da API (Enter usa $DefaultApiUrl)"
+$ApiInput = $env:BLOOM_API_URL
+if ([string]::IsNullOrWhiteSpace($ApiInput)) {
+    $ApiInput = Read-Host "URL HTTPS publica da API (Enter usa $DefaultApiUrl)"
+}
 if ([string]::IsNullOrWhiteSpace($ApiInput)) {
     $ApiUrl = $DefaultApiUrl
 } else {
@@ -48,11 +51,17 @@ $Generated = @"
 """Gerado por build_windows.ps1; URL publica, sem credenciais."""
 API_URL = "$ApiUrl"
 "@
-Set-Content -Path (Join-Path $Root 'bloom_app\build_config.py') -Value $Generated -Encoding UTF8
+$BuildConfigPath = Join-Path $Root 'bloom_app\build_config.py'
+$OriginalBuildConfig = [System.IO.File]::ReadAllBytes($BuildConfigPath)
+Set-Content -Path $BuildConfigPath -Value $Generated -Encoding UTF8
 
 Write-Host 'Compilando aplicativo BLOOM...' -ForegroundColor Yellow
-& $VenvPython -m PyInstaller --noconfirm --clean --windowed --onefile --name BLOOM --icon (Join-Path $Root 'assets\bloom.ico') --paths $Root --hidden-import bloom_safe.scanner --hidden-import bloom_safe.installer --hidden-import bloom_maker.editor --hidden-import bloom_app.localization --collect-all pygame --collect-all PIL bloom_app\main.py
-if ($LASTEXITCODE -ne 0) { throw 'PyInstaller falhou.' }
+try {
+    & $VenvPython -m PyInstaller --noconfirm --clean --windowed --onefile --name BLOOM --icon (Join-Path $Root 'assets\bloom.ico') --paths $Root --hidden-import bloom_safe.scanner --hidden-import bloom_safe.installer --hidden-import bloom_maker.editor --hidden-import bloom_app.localization --collect-all pygame --collect-all PIL bloom_app\main.py
+    if ($LASTEXITCODE -ne 0) { throw 'PyInstaller falhou.' }
+} finally {
+    [System.IO.File]::WriteAllBytes($BuildConfigPath, $OriginalBuildConfig)
+}
 
 $Iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
 if (-not $Iscc) {

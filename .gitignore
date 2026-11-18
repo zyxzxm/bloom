@@ -10,5 +10,12 @@ bloom_data/
 dev_bloom_data/
 dist/
 build/
+.venv-build/
+release/
+.gradle/
+local.properties
+android/.gradle/
+android/**/build/
+android/app/src/main/assets/
 *.spec
 *.log

@@ -1,0 +1,2 @@
+# Preserve canonical Windows line endings for the Gradle batch launcher.
+android/gradlew.bat text eol=crlf
