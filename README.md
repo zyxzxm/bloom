@@ -2,7 +2,7 @@
 
 **A world full of possibilities.** Esta entrega é uma primeira versão funcional do código-fonte: cliente desktop Python/Tkinter, API remota FastAPI, catálogo comunitário com pacotes ZIP, comunidade persistente, BLOOM MAKER visual básico e verificações locais BLOOM SAFE. O desktop e a API são serviços separados. Nenhum servidor é iniciado dentro do executável.
 
-> **Status do deploy de teste:** a API BLOOM WORLD está publicada em [bloom-world.onrender.com](https://bloom-world.onrender.com); `GET /health` e `GET /api/games` respondem. O serviço está no plano Render Free, usa Postgres e bucket privado Supabase e pode dormir quando fica inativo. A persistência de mídia foi configurada, mas não foi validada com upload real de jogador. Esta é uma API, não um site web público completo. Não foi gerado um executável Windows nesta máquina Linux. A triagem de segurança é limitada; não existe antivírus comercial nem sandbox de execução do Windows. A API não usa localhost por padrão; use localhost apenas para desenvolvimento deliberado. A plataforma nunca inicia um jogo automaticamente.
+> **Status do deploy de teste:** a API BLOOM WORLD está publicada em [bloom-world.onrender.com](https://bloom-world.onrender.com); `GET /health` e `GET /api/games` respondem. O serviço está no plano Render Free, usa Postgres e bucket privado Supabase e pode dormir quando fica inativo. A persistência de mídia foi configurada, mas não foi validada com upload real de jogador. Este repositório agora inclui uma interface web servida na raiz pela aplicação, que ficará disponível no deploy após o novo build/atualização do serviço. Não foi gerado um executável Windows nesta máquina Linux. A triagem de segurança é limitada; não existe antivírus comercial nem sandbox de execução do Windows. A API não usa localhost por padrão; use localhost apenas para desenvolvimento deliberado. A plataforma nunca inicia um jogo automaticamente.
 
 ## Conteúdo
 
@@ -254,3 +254,13 @@ O BLOOM SAFE é análise local limitada. O hash confirma correspondência com o 
 - **Termos**: consulte [TERMS.md](TERMS.md). É um modelo inicial, precisa de revisão jurídica antes de lançamento público/comercial.
 
 Antes de publicar uma versão, rode `python -m pytest -q`, teste os fluxos em duas contas e configure moderadores e política de operação. Uma suíte verde não equivale a auditoria de segurança nem a serviço pronto para escala.
+
+## BLOOM WORLD — experiência web
+
+O repositório inclui uma interface web responsiva que acompanha o cliente Python/Tkinter, sem substituir sua biblioteca local, instalação de jogos ou o BLOOM MAKER/BLOOM SAFE desktop. A interface HTML/CSS/JavaScript é servida pela aplicação FastAPI: após iniciar a API, abra a URL raiz (`/`) para acessar o jardim; `/docs` continua sendo a documentação da API e `/health` o diagnóstico. O container inclui `web/` e serve a mesma experiência em sua URL pública depois que o novo commit for implantado.
+
+A interface web se conecta à mesma API e usa suas autenticações e permissões para feed, publicações, curtidas, comentários, perfis, busca de pessoas, publicação e download de pacotes, denúncias e chats diretos/grupo. O botão “Conversar” permanece disponível em todas as telas; mensagens são persistidas, mas não têm criptografia ponta a ponta. A navegação móvel usa abas inferiores e controles adaptados a toque; os botões de áudio dão acesso à faixa, aos ambientes e ao volume. Reprodução começa apenas por ação explícita da pessoa usuária. O Maker web é um editor 2D pequeno, local a este navegador, e não substitui nem publica projetos do Maker desktop.
+
+Para desenvolvimento local, siga a instalação acima e inicie o servidor FastAPI. Abra `http://127.0.0.1:8000/` (ou a raiz do endereço configurado) no navegador. Não use localhost como URL pública de produção. Os arquivos web e recursos licenciados são distribuídos junto com o repositório; fontes e licença da faixa ambiente constam em [`docs/asset-licenses.md`](docs/asset-licenses.md).
+
+A interface traz links para [itch.io](https://zyx4415.itch.io/bloom) e [TikTok](https://www.tiktok.com/@bloom.games.and.c), incluindo pictogramas locais das respectivas marcas. Crédito exibido pelo produto: **BLOOM — Created by ZYXZXM.**
