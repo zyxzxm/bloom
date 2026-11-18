@@ -7,6 +7,7 @@ from typing import Optional
 import jwt
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, Form, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pwdlib import PasswordHash
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, select, func
@@ -368,7 +369,10 @@ def get_avatar(username:str,db:Session=Depends(get_db)):
     user=db.scalar(select(User).where(func.lower(User.username)==username.lower()))
     if not user: raise HTTPException(404,"Perfil não encontrado")
     item=db.scalar(select(AccountMedia).where(AccountMedia.user_id==user.id))
-    if not item or not item.avatar_path: raise HTTPException(404,"Este perfil não tem foto")
+    if not item or not item.avatar_path:
+        placeholder=Path(__file__).resolve().parent.parent/"web"/"assets"/"bloom-mark.svg"
+        if placeholder.is_file(): return FileResponse(placeholder,media_type="image/svg+xml")
+        raise HTTPException(404,"Este perfil não tem foto")
     path=MEDIA_DIR/item.avatar_path
     suffix=Path(item.avatar_path).suffix.lower()
     media_type={".png":"image/png",".jpg":"image/jpeg",".webp":"image/webp",".gif":"image/gif"}.get(suffix,"application/octet-stream")
@@ -503,7 +507,7 @@ def game_detail(slug:str,db:Session=Depends(get_db)):
     if not g: raise HTTPException(404,"Jogo não encontrado")
     review=db.scalar(select(ModerationReview).where(ModerationReview.game_id==g.id))
     if review and review.status!="approved": raise HTTPException(404,"Jogo não encontrado")
-    return {"id":g.id,"slug":g.slug,"name":g.name,"version":g.version,"description":g.description,"format":g.format,"developer":db.get(User,g.developer_id).username,"sha256":g.sha256,"size":g.size,"cover_url":f"/api/games/{g.id}/cover" if db.scalar(select(GameMedia).where(GameMedia.game_id==g.id)) else None,"created_at":g.created_at,"rating":db.scalar(select(func.avg(Rating.score)).where(Rating.game_id==g.id))}
+    return {"id":g.id,"slug":g.slug,"name":g.name,"version":g.version,"description":g.description,"format":g.format,"developer":db.get(User,g.developer_id).username,"developer_id":g.developer_id,"sha256":g.sha256,"size":g.size,"cover_url":f"/api/games/{g.id}/cover" if db.scalar(select(GameMedia).where(GameMedia.game_id==g.id)) else None,"created_at":g.created_at,"rating":db.scalar(select(func.avg(Rating.score)).where(Rating.game_id==g.id))}
 
 @app.put("/api/games/{game_id}/cover")
 def upload_game_cover(game_id:int,file:UploadFile=File(...),user:User=Depends(require_user),db:Session=Depends(get_db)):
@@ -653,3 +657,9 @@ def decide_report(report_id:int,data:ReportDecisionIn,user:User=Depends(require_
     report=db.get(Report,report_id)
     if not report:raise HTTPException(404,"Denúncia não encontrada")
     report.status=data.status;db.commit();return {"id":report.id,"status":report.status}
+
+
+# Interface web opcional do BLOOM; manter este mount após todas as rotas API e docs.
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+if WEB_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="bloom-web")
