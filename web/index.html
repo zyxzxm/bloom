@@ -52,7 +52,7 @@
           <label class="search-pill"><span>⌕</span><input id="global-search" type="search" placeholder="Busque jogos, mundos..." aria-label="Buscar jogos"><kbd>↵</kbd></label>
           <button id="desktop-tools" class="button-quiet desktop-tools-button" type="button" hidden>Ferramentas locais</button>
           <button class="round-action" data-action="settings" aria-label="Configurações" title="Configurações">⚙</button>
-          <button id="account-button" class="account-pill" data-action="auth"><span class="avatar-small" id="account-avatar">✿</span><span id="account-name">Entrar</span><span class="chevron">⌄</span></button>
+          <button id="admin-button" class="button-quiet admin-top-button" data-action="admin" hidden>ADMIN</button><button id="account-button" class="account-pill" data-action="auth"><span class="avatar-small" id="account-avatar">✿</span><span id="account-name">Entrar</span><span class="chevron">⌄</span></button>
         </div>
       </header>
       <div id="view-root" class="view-root" aria-live="polite"></div>
@@ -78,7 +78,7 @@
   <section id="chat-dock" class="chat-dock glass-panel" aria-label="Conversas BLOOM" hidden></section>
   <dialog id="app-dialog" class="app-dialog"></dialog>
   <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
-  <div id="audio-players" hidden><audio id="aqua-track" src="/assets/audio/bloom-aqua-ambience-2026.mp3" preload="none" loop></audio></div>
+  <div id="audio-players" hidden><audio id="aqua-track" src="/assets/audio/bloom-aqua-ambience-2026.mp3" preload="auto" loop playsinline></audio></div>
   <script src="/app.js" defer></script>
 </body>
 </html>

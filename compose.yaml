@@ -22,6 +22,7 @@ services:
       BLOOM_DATA_DIR: /data
       BLOOM_CORS_ORIGINS: https://seudominio.tld
       BLOOM_MODERATOR_USER_IDS: ${BLOOM_MODERATOR_USER_IDS:-}
+      BLOOM_OWNER_USER_ID: ${BLOOM_OWNER_USER_ID:-}
     volumes:
       - bloom_packages:/data
     depends_on:

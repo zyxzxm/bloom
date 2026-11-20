@@ -24,6 +24,7 @@ public class MainActivity extends Activity {
                 .build();
         webView = new WebView(this);
         webView.getSettings().setJavaScriptEnabled(true);
+        webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setLoadWithOverviewMode(true);
         webView.getSettings().setUseWideViewPort(true);

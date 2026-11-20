@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from pwdlib import PasswordHash
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, select, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, select, func, inspect, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session
 from .database import Base, engine, get_db
 from . import object_storage
@@ -24,6 +25,8 @@ MEDIA_DIR = APP_DIR / "media"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 TERMS_VERSION = "1.0"
 MODERATOR_IDS = {int(x) for x in os.getenv("BLOOM_MODERATOR_USER_IDS", "").split(",") if x.strip().isdigit()}
+OWNER_USER_ID = int(os.getenv("BLOOM_OWNER_USER_ID") or "0") or None
+RESERVED_OWNER_USERNAME = "zyxzx m".replace(" ", "")
 JWT_SECRET = os.getenv("BLOOM_JWT_SECRET")
 if not JWT_SECRET:
     JWT_SECRET = secrets.token_urlsafe(48)
@@ -39,6 +42,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     bio: Mapped[str] = mapped_column(Text, default="")
+    account_status: Mapped[str] = mapped_column(String(20), default="active")
+    suspended_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class Game(Base):
@@ -49,10 +54,21 @@ class Game(Base):
     version: Mapped[str] = mapped_column(String(40))
     description: Mapped[str] = mapped_column(Text, default="")
     format: Mapped[str] = mapped_column(String(16))
+    platform: Mapped[str] = mapped_column(String(16), default="all")
     developer_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     package_name: Mapped[str] = mapped_column(String(255))
     sha256: Mapped[str] = mapped_column(String(64))
     size: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class Event(Base):
+    __tablename__ = "events"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(Text, default="")
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    is_published: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class Post(Base):
@@ -153,6 +169,24 @@ class ModerationReview(Base):
     scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 Base.metadata.create_all(engine)
+# Aditive, repeatable migrations for installations created before account moderation/platform fields.
+def migrate_schema():
+    additions = {
+        "users": {
+            "account_status": "VARCHAR(20) NOT NULL DEFAULT 'active'",
+            "suspended_until": "TIMESTAMP NULL",
+        },
+        "games": {"platform": "VARCHAR(16) NOT NULL DEFAULT 'all'"},
+    }
+    inspector = inspect(engine)
+    with engine.begin() as connection:
+        for table, columns in additions.items():
+            existing = {column["name"] for column in inspector.get_columns(table)}
+            for name, definition in columns.items():
+                if name not in existing:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
+
+migrate_schema()
 app = FastAPI(title="BLOOM WORLD", version="0.1.0", description="API da comunidade e loja BLOOM")
 app.add_middleware(CORSMiddleware, allow_origins=os.getenv("BLOOM_CORS_ORIGINS", "*").split(","), allow_credentials=False, allow_methods=["GET", "POST", "PUT", "DELETE"], allow_headers=["Authorization", "Content-Type"])
 
@@ -181,6 +215,22 @@ class GroupIn(BaseModel):
     usernames: list[str] = Field(min_length=1, max_length=49)
 class MessageIn(BaseModel):
     body: str = Field(min_length=1, max_length=4000)
+class UsernameChangeIn(BaseModel):
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")
+class AdminGameUpdateIn(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=10000)
+    platform: Optional[str] = Field(default=None, pattern="^(all|android|desktop)$")
+class AdminUserUpdateIn(BaseModel):
+    bio: Optional[str] = Field(default=None, max_length=500)
+class AdminUserStatusIn(BaseModel):
+    status: str = Field(pattern="^(active|banned|suspended)$")
+    suspended_until: Optional[datetime] = None
+class EventIn(BaseModel):
+    title: str = Field(min_length=2, max_length=120)
+    description: str = Field(default="", max_length=4000)
+    starts_at: datetime
+    is_published: bool = True
 class ModerationDecisionIn(BaseModel):
     status: str = Field(pattern="^(approved|rejected)$")
 class ReportDecisionIn(BaseModel):
@@ -220,8 +270,28 @@ def scan_with_clamav(path:Path):
     except (OSError,subprocess.TimeoutExpired):return "error", ["antivirus_scan_error"]
 
 
+def is_admin(user: User) -> bool:
+    # Admin authority derives only from server-side configured database IDs, never editable profile fields.
+    return user.id in MODERATOR_IDS or (OWNER_USER_ID is not None and user.id == OWNER_USER_ID)
+def require_admin(user: User):
+    if not is_admin(user):
+        raise HTTPException(403, "Acesso restrito a administradores configurados no servidor")
+    return user
 def user_out(user: User):
-    return {"id": user.id, "username": user.username, "bio": user.bio, "created_at": user.created_at}
+    return {"id": user.id, "username": user.username, "bio": user.bio, "created_at": user.created_at, "is_admin": is_admin(user)}
+def account_is_blocked(user: User):
+    if user.account_status == "banned":
+        return True
+    if user.account_status == "suspended":
+        expiry = user.suspended_until
+        if expiry is None:
+            return True
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if expiry > datetime.now(timezone.utc):
+            return True
+        user.account_status = "active"
+        user.suspended_until = None
 def make_token(user: User):
     now = datetime.now(timezone.utc)
     return jwt.encode({"sub": str(user.id), "iat": now, "exp": now + timedelta(hours=TOKEN_HOURS)}, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -242,6 +312,7 @@ def require_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(b
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
     user = db.get(User, user_id)
     if not user: raise HTTPException(status_code=401, detail="Conta não encontrada")
+    if account_is_blocked(user): raise HTTPException(status_code=403, detail="Esta conta está suspensa ou banida")
     return user
 
 @app.get("/health")
@@ -275,9 +346,18 @@ def register(data: RegisterIn, db: Session = Depends(get_db)):
     if not data.accept_terms: raise HTTPException(400, "Leia e aceite os termos de uso para criar uma conta")
     email = data.email.strip().lower()
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email): raise HTTPException(422, "E-mail inválido")
-    if db.scalar(select(User).where((User.username == data.username) | (User.email == email))): raise HTTPException(409, "Nome de usuário ou e-mail já cadastrado")
-    user = User(username=data.username, email=email, password_hash=PASSWORDS.hash(data.password))
-    db.add(user); db.commit(); db.refresh(user)
+    username = data.username.strip().lower()
+    if username == RESERVED_OWNER_USERNAME:
+        raise HTTPException(409, "@ZYXZXM é reservado à conta oficial do criador")
+    if db.scalar(select(User).where((func.lower(User.username) == username) | (func.lower(User.email) == email))): raise HTTPException(409, "Nome de usuário ou e-mail já cadastrado")
+    user = User(username=username, email=email, password_hash=PASSWORDS.hash(data.password))
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Nome de usuário ou e-mail já cadastrado")
+    db.refresh(user)
     db.add(TermsAcceptance(user_id=user.id, version=TERMS_VERSION)); db.commit()
     return {"access_token": make_token(user), "token_type": "bearer", "user": user_out(user)}
 
@@ -285,10 +365,28 @@ def register(data: RegisterIn, db: Session = Depends(get_db)):
 def login(data: LoginIn, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(func.lower(User.username) == data.username.lower()))
     if not user or not PASSWORDS.verify(data.password, user.password_hash): raise HTTPException(401, "Usuário ou senha incorretos")
+    if account_is_blocked(user): raise HTTPException(403, "Esta conta está suspensa ou banida")
+    db.commit()
     return {"access_token": make_token(user), "token_type": "bearer", "user": user_out(user)}
 
 @app.get("/api/me")
 def me(user: User = Depends(require_user)): return user_out(user)
+@app.put("/api/me/username")
+def change_username(data: UsernameChangeIn, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    username = data.username.strip().lower()
+    if username == RESERVED_OWNER_USERNAME and user.id != OWNER_USER_ID:
+        raise HTTPException(409, "@ZYXZXM é reservado à conta oficial do criador")
+    if db.scalar(select(User.id).where(func.lower(User.username) == username, User.id != user.id)):
+        raise HTTPException(409, "Este nome de usuário já está em uso")
+    user.username = username
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Este nome de usuário já está em uso")
+    db.refresh(user)
+    return user_out(user)
+
 @app.get("/api/users/search")
 def search_users(q: str = "", db: Session = Depends(get_db)):
     if len(q.strip()) < 2: return []
@@ -395,7 +493,7 @@ def create_post(data: TextIn, user: User = Depends(require_user), db: Session = 
 def delete_post(post_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     post=db.get(Post,post_id)
     if not post: raise HTTPException(404,"Publicação não encontrada")
-    if post.author_id != user.id: raise HTTPException(403,"Só o autor pode apagar esta publicação")
+    if post.author_id != user.id and not is_admin(user): raise HTTPException(403,"Só o autor ou um administrador pode apagar esta publicação")
     db.query(Comment).filter(Comment.post_id==post_id).delete(synchronize_session=False)
     db.query(Like).filter(Like.post_id==post_id).delete(synchronize_session=False)
     db.delete(post);db.commit()
@@ -420,7 +518,7 @@ def add_comment(post_id:int,data:TextIn,user:User=Depends(require_user),db:Sessi
 def delete_comment(comment_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
     comment=db.get(Comment,comment_id)
     if not comment: raise HTTPException(404,"Comentário não encontrado")
-    if comment.author_id != user.id: raise HTTPException(403,"Só o autor pode apagar este comentário")
+    if comment.author_id != user.id and not is_admin(user): raise HTTPException(403,"Só o autor ou um administrador pode apagar este comentário")
     db.delete(comment);db.commit()
 
 def require_member(conversation_id: int, user: User, db: Session):
@@ -499,15 +597,16 @@ def list_games(q:str="",category:str="",db:Session=Depends(get_db)):
     stmt=select(Game).outerjoin(ModerationReview,ModerationReview.game_id==Game.id).where((ModerationReview.status==None)|(ModerationReview.status=="approved")).order_by(Game.created_at.desc())
     if q.strip(): stmt=stmt.where((Game.name.ilike(f"%{q.strip()}%"))|(Game.description.ilike(f"%{q.strip()}%")))
     if category in {"exe","pygame","bloom"}: stmt=stmt.where(Game.format==category)
+    elif category in {"android", "desktop"}: stmt=stmt.where(Game.platform.in_([category, "all"]))
     games=db.scalars(stmt.limit(100)).all()
-    return [{"id":g.id,"slug":g.slug,"name":g.name,"version":g.version,"description":g.description,"format":g.format,"developer":db.get(User,g.developer_id).username,"developer_id":g.developer_id,"cover_url":f"/api/games/{g.id}/cover" if db.scalar(select(GameMedia).where(GameMedia.game_id==g.id)) else None,"sha256":g.sha256,"size":g.size,"created_at":g.created_at,"rating":db.scalar(select(func.avg(Rating.score)).where(Rating.game_id==g.id))} for g in games]
+    return [{"id":g.id,"slug":g.slug,"name":g.name,"version":g.version,"description":g.description,"format":g.format,"platform":g.platform,"developer":db.get(User,g.developer_id).username,"developer_id":g.developer_id,"cover_url":f"/api/games/{g.id}/cover" if db.scalar(select(GameMedia).where(GameMedia.game_id==g.id)) else None,"sha256":g.sha256,"size":g.size,"created_at":g.created_at,"rating":db.scalar(select(func.avg(Rating.score)).where(Rating.game_id==g.id))} for g in games]
 @app.get("/api/games/{slug}")
 def game_detail(slug:str,db:Session=Depends(get_db)):
     g=db.scalar(select(Game).where(Game.slug==slug))
     if not g: raise HTTPException(404,"Jogo não encontrado")
     review=db.scalar(select(ModerationReview).where(ModerationReview.game_id==g.id))
     if review and review.status!="approved": raise HTTPException(404,"Jogo não encontrado")
-    return {"id":g.id,"slug":g.slug,"name":g.name,"version":g.version,"description":g.description,"format":g.format,"developer":db.get(User,g.developer_id).username,"developer_id":g.developer_id,"sha256":g.sha256,"size":g.size,"cover_url":f"/api/games/{g.id}/cover" if db.scalar(select(GameMedia).where(GameMedia.game_id==g.id)) else None,"created_at":g.created_at,"rating":db.scalar(select(func.avg(Rating.score)).where(Rating.game_id==g.id))}
+    return {"id":g.id,"slug":g.slug,"name":g.name,"version":g.version,"description":g.description,"format":g.format,"platform":g.platform,"developer":db.get(User,g.developer_id).username,"developer_id":g.developer_id,"sha256":g.sha256,"size":g.size,"cover_url":f"/api/games/{g.id}/cover" if db.scalar(select(GameMedia).where(GameMedia.game_id==g.id)) else None,"created_at":g.created_at,"rating":db.scalar(select(func.avg(Rating.score)).where(Rating.game_id==g.id))}
 
 @app.put("/api/games/{game_id}/cover")
 def upload_game_cover(game_id:int,file:UploadFile=File(...),user:User=Depends(require_user),db:Session=Depends(get_db)):
@@ -543,8 +642,9 @@ def allowed_archive(file: UploadFile):
     if suffix not in {".zip"}: raise HTTPException(415,"Envie um pacote ZIP contendo o jogo e bloom.json. Pacotes avulsos ainda não são aceitos pela API.")
     return suffix
 @app.post("/api/games",status_code=201)
-def publish_game(name:str=Form(...),version:str=Form(...),description:str=Form(""),format:str=Form(...),file:UploadFile=File(...),user:User=Depends(require_user),db:Session=Depends(get_db)):
+def publish_game(name:str=Form(...),version:str=Form(...),description:str=Form(""),format:str=Form(...),platform:str=Form("all"),file:UploadFile=File(...),user:User=Depends(require_user),db:Session=Depends(get_db)):
     if format not in {"exe","pygame","bloom"}: raise HTTPException(422,"Formatos permitidos: exe, pygame, bloom")
+    if platform not in {"all", "android", "desktop"}: raise HTTPException(422,"Plataformas permitidas: all, android, desktop")
     allowed_archive(file)
     if len(name)>100 or len(version)>40 or len(description)>10000: raise HTTPException(422,"Metadados excedem os limites")
     slug=f"{re.sub(r'[^a-z0-9]+','-',name.lower()).strip('-')[:50] or 'jogo'}-{uuid.uuid4().hex[:8]}"
@@ -591,7 +691,7 @@ def publish_game(name:str=Form(...),version:str=Form(...),description:str=Form("
         else:
             temp.replace(final_path)
         review_status="pending" if findings else "approved"
-        g=Game(slug=slug,name=name,version=version,description=description,format=format,developer_id=user.id,package_name=final_name,sha256=digest.hexdigest(),size=size)
+        g=Game(slug=slug,name=name,version=version,description=description,format=format,platform=platform,developer_id=user.id,package_name=final_name,sha256=digest.hexdigest(),size=size)
         db.add(g);db.flush();db.add(ModerationReview(game_id=g.id,status=review_status,findings=json.dumps(findings)));db.commit();db.refresh(g)
         return {"id":g.id,"slug":slug,"sha256":g.sha256,"status":"pending_review" if findings else "published","moderation_findings":findings,"antivirus_status":antivirus_status,"moderation_disclaimer":"Triagem automática limitada; um resultado limpo do ClamAV não é garantia de segurança nem verificação legal."}
     except Exception:
@@ -615,7 +715,7 @@ def download_game(slug:str,db:Session=Depends(get_db)):
 def delete_game(game_id:int,user:User=Depends(require_user),db:Session=Depends(get_db)):
     game=db.get(Game,game_id)
     if not game: raise HTTPException(404,"Projeto não encontrado")
-    if game.developer_id!=user.id and user.id not in MODERATOR_IDS: raise HTTPException(403,"Só o autor pode remover este projeto")
+    if game.developer_id!=user.id and not is_admin(user): raise HTTPException(403,"Só o autor pode remover este projeto")
     delete_stored_file(f"packages/{game.package_name}",UPLOAD_DIR/game.package_name)
     media=db.scalar(select(GameMedia).where(GameMedia.game_id==game_id))
     if media and media.cover_path:delete_stored_file(f"media/{media.cover_path}",MEDIA_DIR/media.cover_path)
@@ -624,9 +724,116 @@ def delete_game(game_id:int,user:User=Depends(require_user),db:Session=Depends(g
     if review:db.delete(review)
     db.delete(game);db.commit()
 
+@app.delete("/api/admin/content/{target_type}/{target_id}", status_code=204)
+def admin_delete_content(target_type: str, target_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    if target_type == "game":
+        return delete_game(target_id, user, db)
+    if target_type == "post":
+        return delete_post(target_id, user, db)
+    if target_type == "comment":
+        return delete_comment(target_id, user, db)
+    if target_type == "message":
+        message = db.get(ChatMessage, target_id)
+        if not message: raise HTTPException(404, "Mensagem não encontrada")
+        db.delete(message); db.commit()
+        return None
+    raise HTTPException(422, "Tipo de conteúdo não suportado para remoção")
+
+@app.get("/api/admin/summary")
+def admin_summary(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    return {"users": db.scalar(select(func.count(User.id))) or 0,
+            "games": db.scalar(select(func.count(Game.id))) or 0,
+            "pending_games": db.scalar(select(func.count(ModerationReview.game_id)).where(ModerationReview.status == "pending")) or 0,
+            "open_reports": db.scalar(select(func.count(Report.id)).where(Report.status == "open")) or 0,
+            "events": db.scalar(select(func.count(Event.id))) or 0}
+
+@app.get("/api/admin/games")
+def admin_games(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    rows = db.scalars(select(Game).order_by(Game.created_at.desc()).limit(300)).all()
+    return [{"id": g.id, "slug": g.slug, "name": g.name, "description": g.description, "format": g.format,
+             "platform": g.platform, "developer": db.get(User, g.developer_id).username,
+             "status": (db.scalar(select(ModerationReview.status).where(ModerationReview.game_id == g.id)) or "approved")}
+            for g in rows]
+
+@app.put("/api/admin/games/{game_id}")
+def admin_update_game(game_id: int, data: AdminGameUpdateIn, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    game = db.get(Game, game_id)
+    if not game: raise HTTPException(404, "Jogo não encontrado")
+    if data.name is not None: game.name = data.name.strip()
+    if data.description is not None: game.description = data.description.strip()
+    if data.platform is not None: game.platform = data.platform
+    db.commit()
+    return {"id": game.id, "name": game.name, "platform": game.platform}
+
+@app.get("/api/admin/users")
+def admin_users(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    rows = db.scalars(select(User).order_by(User.created_at.desc()).limit(200)).all()
+    return [{**user_out(row), "email": row.email, "account_status": row.account_status, "suspended_until": row.suspended_until} for row in rows]
+
+@app.put("/api/admin/users/{user_id}")
+def admin_update_user(user_id: int, data: AdminUserUpdateIn, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    target = db.get(User, user_id)
+    if not target: raise HTTPException(404, "Conta não encontrada")
+    if data.bio is not None: target.bio = data.bio.strip()
+    db.commit()
+    return user_out(target)
+
+@app.post("/api/admin/users/{user_id}/status")
+def admin_set_user_status(user_id: int, data: AdminUserStatusIn, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    target = db.get(User, user_id)
+    if not target: raise HTTPException(404, "Conta não encontrada")
+    if target.id == OWNER_USER_ID and user.id != OWNER_USER_ID:
+        raise HTTPException(403, "Somente o proprietário configurado pode alterar o estado desta conta")
+    if target.id == user.id and data.status != "active":
+        raise HTTPException(409, "Não é permitido suspender a própria sessão administrativa")
+    if data.status == "suspended" and (data.suspended_until is None or data.suspended_until <= datetime.now(timezone.utc)):
+        raise HTTPException(422, "Informe uma data futura para a suspensão temporária")
+    target.account_status = data.status
+    target.suspended_until = data.suspended_until if data.status == "suspended" else None
+    db.commit()
+    return {"id": target.id, "account_status": target.account_status, "suspended_until": target.suspended_until}
+
+@app.get("/api/admin/events")
+def admin_list_events(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    return [{"id": e.id, "title": e.title, "description": e.description, "starts_at": e.starts_at, "is_published": e.is_published} for e in db.scalars(select(Event).order_by(Event.starts_at.asc())).all()]
+
+@app.get("/api/events")
+def public_events(db: Session = Depends(get_db)):
+    return [{"id": e.id, "title": e.title, "description": e.description, "starts_at": e.starts_at} for e in db.scalars(select(Event).where(Event.is_published == True).order_by(Event.starts_at.asc())).all()]
+
+@app.post("/api/admin/events", status_code=201)
+def admin_create_event(data: EventIn, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    event = Event(title=data.title.strip(), description=data.description.strip(), starts_at=data.starts_at, is_published=data.is_published, created_by=user.id)
+    db.add(event); db.commit(); db.refresh(event)
+    return {"id": event.id, "title": event.title, "description": event.description, "starts_at": event.starts_at, "is_published": event.is_published}
+
+@app.put("/api/admin/events/{event_id}")
+def admin_update_event(event_id: int, data: EventIn, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    event = db.get(Event, event_id)
+    if not event: raise HTTPException(404, "Evento não encontrado")
+    event.title=data.title.strip(); event.description=data.description.strip(); event.starts_at=data.starts_at; event.is_published=data.is_published
+    db.commit()
+    return {"id": event.id, "title": event.title, "description": event.description, "starts_at": event.starts_at, "is_published": event.is_published}
+
+@app.delete("/api/admin/events/{event_id}", status_code=204)
+def admin_delete_event(event_id: int, user: User = Depends(require_user), db: Session = Depends(get_db)):
+    require_admin(user)
+    event = db.get(Event, event_id)
+    if not event: raise HTTPException(404, "Evento não encontrado")
+    db.delete(event); db.commit()
+
 def require_moderator(user:User):
-    if user.id not in MODERATOR_IDS: raise HTTPException(403,"Acesso restrito a moderadores configurados")
-    return user
+    return require_admin(user)
 
 @app.get("/api/moderation/queue")
 def moderation_queue(user:User=Depends(require_user),db:Session=Depends(get_db)):

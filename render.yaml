@@ -17,3 +17,5 @@ services:
         sync: false
       - key: SUPABASE_STORAGE_BUCKET
         value: bloom-assets
+      - key: BLOOM_OWNER_USER_ID
+        sync: false

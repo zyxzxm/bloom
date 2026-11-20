@@ -227,3 +227,122 @@ def test_web_companion_is_served_without_shadowing_api():
     assert client.get("/health").json()["status"] == "ok"
     assert client.get("/docs").status_code == 200
     assert client.get("/api/no-such-route").status_code == 404
+
+
+def test_owner_identity_admin_controls_and_reserved_username():
+    from datetime import datetime, timedelta, timezone
+    from bloom_world import main as world
+    c = TestClient(app)
+    suffix = uuid.uuid4().hex[:8]
+    owner = _new_user(c, "Owner" + suffix)
+    member = _new_user(c, "Member" + suffix)
+    owner_h = {"Authorization": "Bearer " + owner["access_token"]}
+    member_h = {"Authorization": "Bearer " + member["access_token"]}
+
+    # Canonical storage plus server-side uniqueness protects concurrent/case-variant requests.
+    assert owner["user"]["username"] == owner["user"]["username"].lower()
+    duplicate = c.post("/api/auth/register", json={"username": owner["user"]["username"].upper(), "email": "dupe"+suffix+"@example.test", "password": "strong-pass-123", "accept_terms": True})
+    assert duplicate.status_code == 409
+    reserved = c.post("/api/auth/register", json={"username": "ZYXZXM", "email": "reserved"+suffix+"@example.test", "password": "strong-pass-123", "accept_terms": True})
+    assert reserved.status_code == 409
+    assert c.get("/api/admin/summary", headers=member_h).status_code == 403
+    assert c.put("/api/me/username", headers=member_h, json={"username": "zyxzx m"}).status_code == 422
+
+    original_owner_id = world.OWNER_USER_ID
+    world.OWNER_USER_ID = owner["user"]["id"]
+    try:
+        assert c.get("/api/me", headers=owner_h).json()["is_admin"] is True
+        assert c.get("/api/me", headers=member_h).json()["is_admin"] is False
+        assert c.get("/api/admin/summary", headers=owner_h).status_code == 200
+        assert c.put("/api/admin/users/"+str(member["user"]["id"]), headers=member_h, json={"bio":"self promotion"}).status_code == 403
+        renamed = c.put("/api/me/username", headers=owner_h, json={"username":"ZYXZXM"})
+        assert renamed.status_code == 200 and renamed.json()["username"] == "zyxzxm" and renamed.json()["is_admin"] is True
+        relogin = c.post("/api/auth/login", json={"username":"ZYXZXM", "password":"strong-pass-123"})
+        assert relogin.status_code == 200 and relogin.json()["user"]["is_admin"] is True
+
+        event = c.post("/api/admin/events", headers=owner_h, json={"title":"Jardim de teste", "description":"evento", "starts_at":(datetime.now(timezone.utc)+timedelta(days=3)).isoformat(), "is_published":True})
+        assert event.status_code == 201, event.text
+        edited = c.put(f"/api/admin/events/{event.json()['id']}", headers=owner_h, json={"title":"Jardim editado", "description":"novo", "starts_at":(datetime.now(timezone.utc)+timedelta(days=4)).isoformat(), "is_published":True})
+        assert edited.status_code == 200 and edited.json()["title"] == "Jardim editado"
+        assert any(row["title"] == "Jardim editado" for row in c.get("/api/events").json())
+        assert c.delete(f"/api/admin/events/{event.json()['id']}", headers=owner_h).status_code == 204
+
+        suspended = c.post(f"/api/admin/users/{member['user']['id']}/status", headers=owner_h, json={"status":"suspended", "suspended_until":(datetime.now(timezone.utc)+timedelta(hours=1)).isoformat()})
+        assert suspended.status_code == 200
+        assert c.get("/api/me", headers=member_h).status_code == 403
+        banned = c.post(f"/api/admin/users/{member['user']['id']}/status", headers=owner_h, json={"status":"banned"})
+        assert banned.status_code == 200
+        assert c.post("/api/auth/login", json={"username":member["user"]["username"], "password":"strong-pass-123"}).status_code == 403
+        assert c.post(f"/api/admin/users/{member['user']['id']}/status", headers=owner_h, json={"status":"active"}).status_code == 200
+        assert c.get("/api/me", headers=member_h).status_code == 200
+
+        # Android platform is stored and filtered by the API, then admin-editable.
+        manifest={"name":"Android Garden", "version":"1.0", "developer":owner["user"]["username"], "description":"Android package", "format":"bloom", "files":[]}
+        archive=io.BytesIO()
+        with zipfile.ZipFile(archive,"w") as z: z.writestr("bloom.json",json.dumps(manifest))
+        archive.seek(0)
+        uploaded=c.post("/api/games", headers=owner_h, data={"name":"Android Garden", "version":"1.0", "description":"Android package", "format":"bloom", "platform":"android"}, files={"file":("android.zip",archive,"application/zip")})
+        assert uploaded.status_code == 201, uploaded.text
+        assert any(g["slug"] == uploaded.json()["slug"] for g in c.get("/api/games?category=android").json())
+        assert not any(g["slug"] == uploaded.json()["slug"] for g in c.get("/api/games?category=desktop").json())
+        edit=c.put(f"/api/admin/games/{uploaded.json()['id']}", headers=owner_h, json={"platform":"desktop"})
+        assert edit.status_code == 200 and edit.json()["platform"] == "desktop"
+    finally:
+        world.OWNER_USER_ID = original_owner_id
+
+
+def test_concurrent_username_registration_keeps_one_canonical_account():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    suffix = uuid.uuid4().hex[:8]
+    username = "race_" + suffix
+    barrier = Barrier(2)
+
+    def register(index):
+        barrier.wait()
+        with TestClient(app) as client:
+            return client.post("/api/auth/register", json={
+                "username": username.upper() if index else username,
+                "email": f"race{index}_{suffix}@example.test",
+                "password": "strong-pass-123",
+                "accept_terms": True,
+            }).status_code
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        statuses = sorted(pool.map(register, (0, 1)))
+    assert statuses == [201, 409]
+    assert len([u for u in TestClient(app).get("/api/users/search", params={"q": username}).json() if u["username"] == username]) == 1
+
+
+def test_admin_can_remove_reported_posts_comments_and_messages():
+    from bloom_world import main as world
+    from sqlalchemy.orm import Session
+    c = TestClient(app)
+    suffix = uuid.uuid4().hex[:8]
+    admin = _new_user(c, "admin" + suffix)
+    member = _new_user(c, "member" + suffix)
+    admin_h = {"Authorization": "Bearer " + admin["access_token"]}
+    member_h = {"Authorization": "Bearer " + member["access_token"]}
+    previous_owner = world.OWNER_USER_ID
+    world.OWNER_USER_ID = admin["user"]["id"]
+    try:
+        post = c.post("/api/posts", headers=member_h, json={"body": "conteúdo sinalizado"}).json()
+        assert c.delete(f"/api/admin/content/post/{post['id']}", headers=member_h).status_code == 403
+        assert c.delete(f"/api/admin/content/post/{post['id']}", headers=admin_h).status_code == 204
+        assert all(row["id"] != post["id"] for row in c.get("/api/posts").json())
+
+        post2 = c.post("/api/posts", headers=member_h, json={"body": "outra publicação"}).json()
+        comment = c.post(f"/api/posts/{post2['id']}/comments", headers=member_h, json={"body": "resposta sinalizada"}).json()
+        assert c.delete(f"/api/admin/content/comment/{comment['id']}", headers=admin_h).status_code == 204
+        assert c.get(f"/api/posts/{post2['id']}/comments").json() == []
+
+        with Session(engine) as db:
+            conversation = world.Conversation(title="teste", is_group=False, created_by=admin["user"]["id"])
+            db.add(conversation); db.flush()
+            message = world.ChatMessage(conversation_id=conversation.id, sender_id=member["user"]["id"], body="mensagem reportada")
+            db.add(message); db.commit(); db.refresh(message)
+            message_id = message.id
+        assert c.delete(f"/api/admin/content/message/{message_id}", headers=member_h).status_code == 403
+        assert c.delete(f"/api/admin/content/message/{message_id}", headers=admin_h).status_code == 204
+    finally:
+        world.OWNER_USER_ID = previous_owner
