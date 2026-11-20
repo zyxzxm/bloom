@@ -33,9 +33,9 @@
 
 ## 7. GitHub, documentação e publicação
 - [x] Trabalhar diretamente no repositório BLOOM em GitHub.
-- [ ] Publicar alterações de código, imagens, áudio e documentação no repositório GitHub; atualizar README e organizar commits. Bloqueado pelo HTTP 403 de escrita no remoto nesta sessão.
+- [x] Publicar alterações de código, imagens, áudio e documentação no repositório GitHub; atualizar README e organizar commits.
 - [x] Preservar commits e histórico local existentes; nenhuma alteração destrutiva/force-push foi feita.
-- [ ] Confirmar a publicação no repositório remoto após restabelecer acesso de escrita.
+- [x] Confirmar a publicação do commit `8588a46` na branch `main`.
 
 ## 8. Validação e desempenho
 - [x] Executar o projeto; testar funcionalidades, links, áudio, navegação, desktop e mobile; corrigir erros e otimizar.
@@ -51,7 +51,8 @@
 - [x] Implementar checagens administrativas no backend e uma interface funcional compartilhada por computador e Android.
 - [x] Disponibilizar ações administrativas para criar, editar e remover eventos; revisar, aprovar ou rejeitar jogos enviados; remover jogos/conteúdos inadequados; banir, desbanir e suspender contas; editar perfis; alterar a plataforma/categoria de jogos; e gerenciar denúncias.
 - [x] Testar acesso negado a usuário comum, ações de evento, contas suspensas/banidas, filtros de plataforma Android, remoção de posts/comentários/mensagens e persistência da autoridade após nova autenticação.
-- [ ] Provisionar no Render `BLOOM_OWNER_USER_ID=1` (ID confirmado pela rota pública da conta `@ZYXZXM`) e, após o deploy, validar `/api/me`, painel admin e negação para conta comum na produção.
+- [x] Provisionar no Render `BLOOM_OWNER_USER_ID=1` (ID público confirmado da conta `@ZYXZXM`) e implantar o commit `8588a46`; `/health` retornou 200 e `/api/admin/summary` sem autenticação retornou 401.
+- [ ] Confirmar a interface admin autenticada na produção com a conta BLOOM owner e uma conta comum; o navegador estava sem sessão BLOOM autenticada.
 
 ## 11. Proteção de nomes de usuário (@)
 - [x] Garantir username único no servidor, normalizado em minúsculas, com conflito por duplicidade respondendo HTTP 409 e restrição única persistida no banco para corridas concorrentes.
@@ -78,6 +79,6 @@
 - [x] Implementar as alterações diretamente no projeto existente, preservando os recursos e sem substituir integrações por placeholders.
 - [x] Suíte integral: 17 testes passaram; compilação Python, `node --check` e `git diff --check` passaram.
 - [x] Gerar APK debug Android atualizado; copiar/entregar o artefato após conferir integridade.
-- [ ] Publicar código/documentação no GitHub e aguardar o deploy atualizado do Render.
+- [x] Publicar o código/documentação no GitHub; Render implantou com sucesso o commit `8588a46`.
 - [ ] Conferir privilégios owner e usuário comum na produção após configurar o ID; distinguir esse provisionamento de testes locais.
 - [ ] Concluir validações que exigem dispositivo/saída de áudio real, ou documentar explicitamente a limitação se não houver hardware disponível.
